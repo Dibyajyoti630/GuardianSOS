@@ -1,0 +1,48 @@
+.status-card {
+    background: var(--color-light-bg);
+    border-radius: 16px;
+    padding: var(--spacing-md);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.status-card.safe {
+    border-left: 5px solid var(--color-safe);
+}
+
+.status-card.danger {
+    border-left: 5px solid var(--color-primary);
+    background-color: rgba(230, 57, 70, 0.1);
+    /* Red tint for danger */
+}
+
+.status-main {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-weight: 700;
+    color: var(--color-safe);
+}
+
+.status-card.danger .status-main {
+    color: var(--color-primary);
+}
+
+.system-status {
+    display: flex;
+    gap: var(--spacing-md);
+    color: var(--color-text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}

@@ -1,0 +1,90 @@
+:root {
+  /* Colors - Dark Theme */
+  --color-primary: #ff4d5a;
+  /* Brighter SOS Red */
+  --color-primary-dark: #d00000;
+  --color-safe: #2ecc71;
+  /* Bright Safe Green */
+  --color-warning: #f1c40f;
+
+  --color-dark-bg: #0f172a;
+  /* Deep Blue-Black */
+  --color-light-bg: #1e293b;
+  /* Lighter Slate for cards */
+  --color-surface: #334155;
+  /* Even lighter for interactive elements */
+
+  --color-text-main: #f8fafc;
+  /* Almost White */
+  --color-text-muted: #94a3b8;
+  /* Muted Blue-Grey */
+  --color-text-light: #f1faee;
+
+  /* Spacing */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+
+  /* Typography */
+  --font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.25rem;
+  --font-size-xl: 1.5rem;
+  --font-size-xxl: 2rem;
+}
+
+/* Light Theme */
+[data-theme="light"] {
+  --color-primary: #ff4d5a;
+  --color-primary-dark: #d00000;
+  --color-safe: #10b981;
+  --color-warning: #f59e0b;
+
+  --color-dark-bg: #f8fafc;
+  /* Light background */
+  --color-light-bg: #ffffff;
+  /* White for cards */
+  --color-surface: #f1f5f9;
+  /* Light grey for interactive elements */
+
+  --color-text-main: #1e293b;
+  /* Dark text */
+  --color-text-muted: #64748b;
+  /* Muted grey */
+  --color-text-light: #334155;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-family);
+  background-color: var(--color-dark-bg);
+  color: var(--color-text-main);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}

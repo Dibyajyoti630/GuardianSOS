@@ -1,0 +1,102 @@
+.sos-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.sos-btn {
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, var(--color-primary), var(--color-primary-dark));
+    color: white;
+    font-weight: 900;
+    font-size: var(--font-size-xxl);
+    box-shadow:
+        0 10px 25px rgba(230, 57, 70, 0.4),
+        inset 0 2px 5px rgba(255, 255, 255, 0.2);
+    position: relative;
+    transition: all 0.3s ease;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border: 4px solid rgba(255, 255, 255, 0.1);
+}
+
+.sos-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 5px 15px rgba(230, 57, 70, 0.4);
+}
+
+.sos-btn.active {
+    background: linear-gradient(145deg, var(--color-warning), #d4a017);
+    animation: pulse-red 1s infinite;
+}
+
+.sos-text {
+    z-index: 12;
+}
+
+.countdown {
+    font-size: 3rem;
+    font-weight: 700;
+}
+
+/* Ripple Animation */
+.ripple {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(230, 57, 70, 0.4);
+    z-index: -1;
+    opacity: 0;
+}
+
+.sos-btn:not(.active) .ripple {
+    animation: ripple-effect 3s infinite;
+}
+
+.sos-btn:not(.active) .ripple:nth-child(2) {
+    animation-delay: 1.5s;
+}
+
+@keyframes ripple-effect {
+    0% {
+        width: 100%;
+        height: 100%;
+        opacity: 0.6;
+    }
+
+    100% {
+        width: 250%;
+        height: 250%;
+        opacity: 0;
+    }
+}
+
+@keyframes pulse-red {
+    0% {
+        box-shadow: 0 0 0 0 rgba(233, 196, 106, 0.7);
+    }
+
+    70% {
+        box-shadow: 0 0 0 30px rgba(233, 196, 106, 0);
+    }
+
+    100% {
+        box-shadow: 0 0 0 0 rgba(233, 196, 106, 0);
+    }
+}
+
+.sos-instruction {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-main);
+    font-weight: 600;
+    opacity: 0.8;
+}
