@@ -383,6 +383,13 @@
     color: var(--color-text-muted);
 }
 
+.form-group select option {
+    background: #808080;
+    color: #ffffff;
+    padding: 12px;
+}
+
+
 .form-actions {
     display: flex;
     gap: 12px;

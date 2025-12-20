@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { User, Settings, HelpCircle, LogOut, X, Shield, MapPin, Navigation, Clock, Zap, Phone, AlertCircle, RefreshCw, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import FakeCallSettings from './FakeCallSettings';
 import '../styles/DashboardHeader.css';
 
 const DashboardHeader = ({ user }) => {
     const navigate = useNavigate();
     const [showSettings, setShowSettings] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
+    const [showFakeCallSettings, setShowFakeCallSettings] = useState(false);
 
     // Theme state - get from localStorage or default to 'dark'
     const [theme, setTheme] = useState(() => {
@@ -58,6 +60,16 @@ const DashboardHeader = ({ user }) => {
                         </button>
                         {showSettings && (
                             <div className="settings-dropdown">
+                                <button
+                                    className="settings-item"
+                                    onClick={() => {
+                                        setShowFakeCallSettings(true);
+                                        setShowSettings(false);
+                                    }}
+                                >
+                                    <Phone size={16} />
+                                    <span>Fake Call Settings</span>
+                                </button>
                                 <button className="settings-item theme-toggle" onClick={toggleTheme}>
                                     {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                                     <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
@@ -196,6 +208,16 @@ const DashboardHeader = ({ user }) => {
                                         <Phone size={24} />
                                     </div>
                                     <div className="help-text">
+                                        <h4>Fake Call</h4>
+                                        <p>Simulate a realistic incoming phone call to help you escape uncomfortable situations. Tap to trigger an instant fake call with ringtone and vibration. Customize the caller name in Settings → Fake Call Settings.</p>
+                                    </div>
+                                </div>
+
+                                <div className="help-item">
+                                    <div className="help-icon">
+                                        <Phone size={24} />
+                                    </div>
+                                    <div className="help-text">
                                         <h4>Emergency Contacts</h4>
                                         <p>Quick access buttons to call emergency services (Police, Ambulance, Fire) or your pre-configured emergency contacts.</p>
                                     </div>
@@ -232,6 +254,12 @@ const DashboardHeader = ({ user }) => {
                     </div>
                 </div>
             )}
+
+            {/* Fake Call Settings Modal */}
+            <FakeCallSettings
+                isOpen={showFakeCallSettings}
+                onClose={() => setShowFakeCallSettings(false)}
+            />
         </>
     );
 };

@@ -1,0 +1,329 @@
+/* Fake Call Settings Modal */
+.fake-call-settings-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    padding: 1rem;
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.fake-call-settings-modal {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 24px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(76, 201, 240, 0.2);
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Settings Header */
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid rgba(76, 201, 240, 0.2);
+    background: rgba(76, 201, 240, 0.05);
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #4CC9F0;
+}
+
+.header-title h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: #a0a0a0;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ffffff;
+}
+
+/* Settings Content */
+.settings-content {
+    padding: 2rem;
+    max-height: calc(90vh - 180px);
+    overflow-y: auto;
+}
+
+.setting-section {
+    margin-bottom: 2rem;
+}
+
+.setting-section:last-child {
+    margin-bottom: 0;
+}
+
+.setting-section label {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin-bottom: 0.5rem;
+}
+
+.setting-description {
+    font-size: 0.875rem;
+    color: #a0a0a0;
+    margin: 0.5rem 0 1rem 0;
+    line-height: 1.5;
+}
+
+/* Caller Name Input */
+.caller-name-input {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(76, 201, 240, 0.3);
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.caller-name-input:focus {
+    outline: none;
+    border-color: #4CC9F0;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 4px rgba(76, 201, 240, 0.1);
+}
+
+.caller-name-input::placeholder {
+    color: #666;
+}
+
+/* Preset Buttons */
+.preset-buttons {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
+
+.preset-btn {
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(76, 201, 240, 0.2);
+    border-radius: 12px;
+    color: #ffffff;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.preset-btn:hover {
+    background: rgba(76, 201, 240, 0.1);
+    border-color: rgba(76, 201, 240, 0.4);
+    transform: translateY(-2px);
+}
+
+.preset-btn.active {
+    background: linear-gradient(135deg, #4CC9F0 0%, #4361EE 100%);
+    border-color: #4CC9F0;
+    box-shadow: 0 4px 16px rgba(76, 201, 240, 0.3);
+}
+
+.preset-btn:active {
+    transform: translateY(0);
+}
+
+/* Info Section */
+.info-section {
+    background: rgba(76, 201, 240, 0.05);
+    border: 1px solid rgba(76, 201, 240, 0.2);
+    border-radius: 16px;
+    padding: 1.5rem;
+}
+
+.info-section h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #4CC9F0;
+}
+
+.info-section ul {
+    margin: 0;
+    padding-left: 1.5rem;
+    color: #d0d0d0;
+}
+
+.info-section li {
+    margin-bottom: 0.5rem;
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+.info-section li:last-child {
+    margin-bottom: 0;
+}
+
+/* Settings Footer */
+.settings-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+    padding: 1.5rem 2rem;
+    border-top: 1px solid rgba(76, 201, 240, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.cancel-btn,
+.save-btn {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cancel-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+.cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.save-btn {
+    background: linear-gradient(135deg, #4CC9F0 0%, #4361EE 100%);
+    border: none;
+    color: #ffffff;
+    box-shadow: 0 4px 16px rgba(76, 201, 240, 0.3);
+}
+
+.save-btn:hover {
+    box-shadow: 0 6px 24px rgba(76, 201, 240, 0.5);
+    transform: translateY(-2px);
+}
+
+.save-btn:active,
+.cancel-btn:active {
+    transform: translateY(0);
+}
+
+/* Scrollbar Styling */
+.settings-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.settings-content::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb {
+    background: rgba(76, 201, 240, 0.3);
+    border-radius: 4px;
+}
+
+.settings-content::-webkit-scrollbar-thumb:hover {
+    background: rgba(76, 201, 240, 0.5);
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+    .fake-call-settings-modal {
+        max-width: 100%;
+        border-radius: 20px 20px 0 0;
+        max-height: 95vh;
+    }
+
+    .settings-header,
+    .settings-footer {
+        padding: 1.25rem 1.5rem;
+    }
+
+    .settings-content {
+        padding: 1.5rem;
+    }
+
+    .header-title h2 {
+        font-size: 1.25rem;
+    }
+
+    .preset-buttons {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .settings-footer {
+        flex-direction: column;
+    }
+
+    .cancel-btn,
+    .save-btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+
+    .fake-call-settings-overlay,
+    .fake-call-settings-modal,
+    .preset-btn,
+    .save-btn,
+    .cancel-btn {
+        animation: none;
+        transition: none;
+    }
+}

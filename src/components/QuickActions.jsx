@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { Phone, Users, Video, Volume2 } from 'lucide-react';
 import EmergencyContacts from './EmergencyContacts';
+import FakeCall from './FakeCall';
 import '../styles/QuickActions.css';
 
 const QuickActions = () => {
     const [showContactsModal, setShowContactsModal] = useState(false);
+    const [showFakeCall, setShowFakeCall] = useState(false);
 
     const handleActionClick = (label) => {
         if (label === 'Contacts') {
             setShowContactsModal(true);
+        } else if (label === 'Fake Call') {
+            setShowFakeCall(true);
         } else {
             // Placeholder for other actions
             console.log(`${label} clicked`);
@@ -43,6 +47,11 @@ const QuickActions = () => {
             <EmergencyContacts
                 isOpen={showContactsModal}
                 onClose={() => setShowContactsModal(false)}
+            />
+
+            <FakeCall
+                isOpen={showFakeCall}
+                onClose={() => setShowFakeCall(false)}
             />
         </>
     );
