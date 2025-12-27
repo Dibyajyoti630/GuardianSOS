@@ -45,7 +45,11 @@ const AuthPage = ({ role }) => {
                 // Save token and user info
                 localStorage.setItem('token', data.token);
                 localStorage.setItem('user', JSON.stringify(data.user));
-                navigate('/dashboard');
+                if (data.user.role === 'guardian') {
+                    navigate('/guardian-dashboard');
+                } else {
+                    navigate('/dashboard');
+                }
             } else {
                 alert(data.msg || 'Authentication failed');
             }
@@ -85,7 +89,11 @@ const AuthPage = ({ role }) => {
                 if (response.ok) {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    navigate('/dashboard');
+                    if (data.user.role === 'guardian') {
+                        navigate('/guardian-dashboard');
+                    } else {
+                        navigate('/dashboard');
+                    }
                 } else {
                     console.error('Backend error:', data);
                     alert(data.msg || 'Google authentication failed');

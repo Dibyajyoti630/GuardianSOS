@@ -25,6 +25,8 @@ mongoose.connect(db)
 app.get('/', (req, res) => res.send('API RUNNING'));
 app.use('/api/auth', require('./backend/routes/auth'));
 app.use('/api/contacts', require('./backend/routes/contacts'));
+app.use('/api/invite', require('./backend/routes/invite'));
+app.use('/api/connections', require('./backend/routes/connections'));
 
 const PORT = process.env.PORT || 5000;
 

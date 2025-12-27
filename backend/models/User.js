@@ -33,6 +33,18 @@ const userSchema = new mongoose.Schema({
     createdAt: {
         type: Date,
         default: Date.now
+    },
+    lastKnownLocation: {
+        lat: Number,
+        lng: Number,
+        address: String,
+        updatedAt: {
+            type: Date,
+            default: Date.now
+        }
+    },
+    batteryLevel: {
+        type: Number
     }
 });
 

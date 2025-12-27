@@ -40,6 +40,12 @@
     font-weight: 500;
 }
 
+.status-text.active-tracking {
+    color: var(--color-tracking, #3b82f6);
+    /* Use a distinct color for active tracking */
+    font-weight: 600;
+}
+
 .header-actions {
     display: flex;
     gap: var(--spacing-sm);

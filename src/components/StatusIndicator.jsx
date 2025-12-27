@@ -1,15 +1,40 @@
 import React from 'react';
-import { ShieldCheck, ShieldAlert, Signal, Battery, Wifi } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Eye, Signal, Battery } from 'lucide-react';
 import '../styles/StatusIndicator.css';
 
-const StatusIndicator = ({ isActive }) => {
+const StatusIndicator = ({ isActive, trackingInfo }) => {
+    // trackingInfo = { isTracking: boolean, names: ['Name1', 'Name2'] }
+
+    const getStatusConfig = () => {
+        if (isActive) {
+            return {
+                className: 'danger',
+                icon: <ShieldAlert size={32} />,
+                text: 'SOS ALERT • RECORDING'
+            };
+        } else if (trackingInfo && trackingInfo.isTracking) {
+            const names = trackingInfo.names.join(', ');
+            return {
+                className: 'tracking',
+                icon: <Eye size={32} />,
+                text: `TRACKED BY ${names.toUpperCase()}`
+            };
+        } else {
+            return {
+                className: 'safe',
+                icon: <ShieldCheck size={32} />,
+                text: 'YOU ARE SAFE'
+            };
+        }
+    };
+
+    const { className, icon, text } = getStatusConfig();
+
     return (
-        <div className={`status-card ${isActive ? 'danger' : 'safe'}`}>
+        <div className={`status-card ${className}`}>
             <div className="status-main">
-                {isActive ? <ShieldAlert size={32} /> : <ShieldCheck size={32} />}
-                <span className="status-label">
-                    {isActive ? 'SOS ALERT • RECORDING' : 'YOU ARE SAFE'}
-                </span>
+                {icon}
+                <span className="status-label">{text}</span>
             </div>
 
             <div className="system-status">
