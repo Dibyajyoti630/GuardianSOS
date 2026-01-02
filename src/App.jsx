@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard'
 import AuthPage from './pages/AuthPage'
 import NotFoundPage from './pages/NotFoundPage'
 import GuardianDashboard from './pages/GuardianDashboard'
+import EvidenceHistory from './pages/EvidenceHistory'
 import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
@@ -37,6 +38,14 @@ function App() {
                             element={
                                 <ProtectedRoute>
                                     <GuardianDashboard />
+                                </ProtectedRoute>
+                            }
+                        />
+                        <Route
+                            path="/guardiansos/user/evidence"
+                            element={
+                                <ProtectedRoute>
+                                    <EvidenceHistory />
                                 </ProtectedRoute>
                             }
                         />

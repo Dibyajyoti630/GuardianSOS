@@ -54,8 +54,8 @@ const DashboardHeader = ({ user }) => {
         };
 
         fetchActiveGuardians();
-        // Poll every 2 seconds for updates
-        const interval = setInterval(fetchActiveGuardians, 2000);
+        // Poll every 10 seconds for updates
+        const interval = setInterval(fetchActiveGuardians, 10000);
         return () => clearInterval(interval);
     }, []);
 

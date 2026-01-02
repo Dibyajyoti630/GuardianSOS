@@ -41,7 +41,7 @@ const Dashboard = () => {
         };
 
         checkTrackingStatus();
-        const interval = setInterval(checkTrackingStatus, 2000);
+        const interval = setInterval(checkTrackingStatus, 5000);
         return () => clearInterval(interval);
     }, []);
 

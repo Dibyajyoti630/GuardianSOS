@@ -1,8 +1,10 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Clock, ChevronRight } from 'lucide-react';
 import '../styles/HistoryPreview.css';
 
 const HistoryPreview = () => {
+    const navigate = useNavigate();
     const historyItems = [
         { id: 1, date: "Today, 10:23 AM", status: "False Alarm", type: "Test" },
         { id: 2, date: "Yesterday, 8:45 PM", status: "Resolved", type: "Emergency" },
@@ -12,7 +14,7 @@ const HistoryPreview = () => {
         <div className="history-preview">
             <div className="history-header">
                 <span className="history-title">Recent Activity</span>
-                <button className="view-all-btn">View All</button>
+                <button className="view-all-btn" onClick={() => navigate('/guardiansos/user/evidence')}>View Evidence</button>
             </div>
 
             <div className="history-list">
