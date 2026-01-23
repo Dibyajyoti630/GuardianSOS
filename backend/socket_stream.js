@@ -2,14 +2,19 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const Evidence = require('./models/Evidence');
+const SOS = require('./models/SOS');
+const User = require('./models/User');
 
 module.exports = (io) => {
     io.on('connection', (socket) => {
-        console.log('Client connected to recording stream:', socket.id);
+        console.log('Client connected to stream/socket:', socket.id);
 
         // Map to keep track of write streams for this socket
         const activeStreams = new Map();
 
+        // -------------------------
+        // MEDIA STREAMING LOGIC
+        // -------------------------
         socket.on('start-stream', ({ batchId, deviceId, type, token }) => {
             let userId = null;
             try {
@@ -84,13 +89,45 @@ module.exports = (io) => {
             }
         });
 
+        // -------------------------
+        // LIVE LOCATION LOGIC
+        // -------------------------
+        socket.on('update-location', async ({ location, token }) => {
+            try {
+                if (!token) return;
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                const userId = decoded.user.id;
+
+                // 1. Update User's last known location
+                await User.findByIdAndUpdate(userId, {
+                    lastKnownLocation: location
+                });
+
+                // 2. If SOS is active, append to SOS history
+                const activeSOS = await SOS.findOne({ user: userId, isActive: true });
+
+                if (activeSOS) {
+                    activeSOS.locationHistory.push({
+                        lat: location.lat,
+                        lng: location.lng
+                    });
+                    await activeSOS.save();
+                }
+
+                console.log(`Loc update: User ${userId} -> ${location.lat},${location.lng} (SOS: ${!!activeSOS})`);
+
+            } catch (err) {
+                console.error('Loc update error:', err.message);
+            }
+        });
+
         socket.on('disconnect', () => {
             // Close all active streams for this socket
             activeStreams.forEach((info) => {
                 if (info.stream) info.stream.end();
             });
             activeStreams.clear();
-            console.log('Client disconnected from stream');
+            console.log('Client disconnected from socket');
         });
     });
 };

@@ -19,6 +19,15 @@ const userSchema = new mongoose.Schema({
         enum: ['user', 'guardian'],
         default: 'user'
     },
+    phone: {
+        type: String,
+        trim: true
+    },
+    status: {
+        type: String,
+        enum: ['Safe', 'SOS', 'Warning'],
+        default: 'Safe'
+    },
     emergencyContact: {
         type: String
     },

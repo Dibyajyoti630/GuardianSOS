@@ -5,6 +5,9 @@ import StatusIndicator from '../components/StatusIndicator'
 import LocationCard from '../components/LocationCard'
 import QuickActions from '../components/QuickActions'
 import HistoryPreview from '../components/HistoryPreview'
+import io from 'socket.io-client';
+
+const socket = io('http://127.0.0.1:5000');
 import '../styles/Dashboard.css'
 
 const Dashboard = () => {
@@ -45,13 +48,94 @@ const Dashboard = () => {
         return () => clearInterval(interval);
     }, []);
 
+    // Location Watch ID
+    const [watchId, setWatchId] = React.useState(null);
+
     const handleSOSActivate = () => {
         setIsSOSActive(true);
-        // Logic for countdown and alert
+        // UI shows countdown, actual API trigger happens in handleSOSTrigger
     };
 
-    const handleSOSCancel = () => {
+    const handleSOSTrigger = async () => {
+        let location = { lat: 0, lng: 0, address: 'Location Unavailable' };
+
+        // Helper to get position with timeout
+        const getPosition = () => {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject(new Error('Geolocation not supported'));
+                    return;
+                }
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    timeout: 5000,
+                    enableHighAccuracy: true
+                });
+            });
+        };
+
+        try {
+            const position = await getPosition();
+            location = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                address: 'Fetching address...'
+            };
+        } catch (geoError) {
+            console.warn("SOS: Location fetch failed, sending SOS anyway.", geoError);
+            alert("Warning: GPS failed. Sending SOS with last known details.");
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            console.log("Sending SOS with Location:", location);
+
+            // 1. Trigger SOS API
+            const res = await fetch('http://127.0.0.1:5000/api/sos/trigger', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token
+                },
+                body: JSON.stringify({ location })
+            });
+
+            if (!res.ok) throw new Error('API Error');
+            console.log("SOS Triggered Successfully");
+
+            // 2. Start Streaming Location via Socket (if possible)
+            if (navigator.geolocation) {
+                const id = navigator.geolocation.watchPosition((pos) => {
+                    const newLoc = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    };
+                    socket.emit('update-location', { location: newLoc, token });
+                }, (err) => console.error("WatchPosition Error:", err), { enableHighAccuracy: true });
+                setWatchId(id);
+            }
+
+        } catch (err) {
+            console.error("SOS Trigger Failed", err);
+            alert("Failed to send SOS Alert. Please call police manually.");
+        }
+    };
+
+    const handleSOSCancel = async () => {
         setIsSOSActive(false);
+        if (watchId !== null) {
+            navigator.geolocation.clearWatch(watchId);
+            setWatchId(null);
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            await fetch('http://127.0.0.1:5000/api/sos/cancel', {
+                method: 'POST',
+                headers: { 'x-auth-token': token }
+            });
+        } catch (err) {
+            console.error("SOS Cancel Failed", err);
+        }
     };
 
     return (
@@ -66,6 +150,7 @@ const Dashboard = () => {
                         isActive={isSOSActive}
                         onActivate={handleSOSActivate}
                         onCancel={handleSOSCancel}
+                        onTrigger={handleSOSTrigger}
                     />
                 </div>
 

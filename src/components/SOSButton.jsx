@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import '../styles/SOSButton.css';
 
-const SOSButton = ({ isActive, onActivate, onCancel }) => {
+const SOSButton = ({ isActive, onActivate, onCancel, onTrigger }) => {
     const [countdown, setCountdown] = useState(5);
 
     useEffect(() => {
@@ -11,7 +11,7 @@ const SOSButton = ({ isActive, onActivate, onCancel }) => {
                 setCountdown((prev) => prev - 1);
             }, 1000);
         } else if (isActive && countdown === 0) {
-            // Countdown finished, alert sent (managed by parent or here)
+            if (onTrigger) onTrigger();
         } else if (!isActive) {
             setCountdown(5); // Reset
         }

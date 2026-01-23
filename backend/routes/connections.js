@@ -140,17 +140,20 @@ router.get('/users', auth, async (req, res) => {
     try {
         const connections = await Connection.find({
             guardian: req.user.id
-        }).populate('user', 'name email profilePicture emergencyContact batteryLevel lastKnownLocation');
+        }).populate('user', 'name email profilePicture emergencyContact batteryLevel lastKnownLocation status');
 
-        const userList = connections.map(conn => ({
-            connectionId: conn._id,
-            userId: conn.user._id,
-            name: conn.user.name,
-            email: conn.user.email,
-            status: conn.status, // active or inactive
-            battery: conn.user.batteryLevel || 'Unknown', // hypothetical fields
-            location: conn.user.lastKnownLocation || null
-        }));
+        const userList = connections.map(conn => {
+            return {
+                connectionId: conn._id,
+                userId: conn.user._id,
+                name: conn.user.name,
+                email: conn.user.email,
+                status: conn.status, // connection status (active/inactive)
+                userStatus: conn.user.status || 'Safe', // user safety status (SOS/Safe)
+                battery: conn.user.batteryLevel || 'Unknown',
+                location: conn.user.lastKnownLocation || null
+            };
+        });
 
         res.json(userList);
     } catch (err) {

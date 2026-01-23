@@ -40,6 +40,7 @@ app.use('/api/contacts', require('./backend/routes/contacts'));
 app.use('/api/invite', require('./backend/routes/invite'));
 app.use('/api/connections', require('./backend/routes/connections'));
 app.use('/api/evidence', require('./backend/routes/evidence'));
+app.use('/api/sos', require('./backend/routes/sos'));
 
 const PORT = process.env.PORT || 5000;
 

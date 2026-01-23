@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const auth = require('../middleware/auth'); // Import auth middleware
 
 // Register User
 router.post('/signup', async (req, res) => {
@@ -201,6 +202,19 @@ router.put('/update-status', async (req, res) => {
 
     } catch (err) {
         console.error('Error updating status:', err);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET api/auth/me
+// @desc    Get current user profile
+// @access  Private
+router.get('/me', auth, async (req, res) => {
+    try {
+        const user = await User.findById(req.user.id).select('-password');
+        res.json(user);
+    } catch (err) {
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 });

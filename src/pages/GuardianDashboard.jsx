@@ -11,12 +11,45 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix for default marker icon in Leaflet with Webpack/Vite
+// Fix for default marker icon in Leaflet with Webpack/Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
     iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
+
+// SOS Alert Overlay Component
+const SOSAlertOverlay = ({ user, location, onDismiss }) => (
+    <div className="sos-alert-overlay">
+        <div className="sos-alert-card">
+            <div className="sos-icon-pulse">
+                <AlertTriangle size={64} color="white" fill="red" />
+            </div>
+            <h1>SOS DETECTED!</h1>
+            <p className="sos-user-name">{user} needs help!</p>
+
+            <div className="sos-location-details">
+                <MapPin size={20} />
+                <span>{location?.address || "Unknown Location"}</span>
+            </div>
+
+            <div className="sos-actions">
+                <a
+                    href={`https://www.google.com/maps?q=${location?.lat},${location?.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="sos-action-btn map-btn"
+                >
+                    View on Google Maps
+                </a>
+                <button className="sos-action-btn dismiss-btn" onClick={onDismiss}>
+                    Acknowledge Alert
+                </button>
+            </div>
+        </div>
+    </div>
+);
 
 // Helper component to update map view when position changes
 function MapUpdater({ center }) {
@@ -39,7 +72,11 @@ const GuardianDashboard = () => {
 
     const [availableUsers, setAvailableUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
+
     const [showUserMenu, setShowUserMenu] = useState(false);
+    const [showSOSAlert, setShowSOSAlert] = useState(false);
+    // Map of userId -> timestamp (when snooze expires)
+    const [snoozeMap, setSnoozeMap] = useState({});
 
     // Simulated user state (fallback)
     const [userStatus, setUserStatus] = useState({
@@ -104,6 +141,7 @@ const GuardianDashboard = () => {
     useEffect(() => {
         if (selectedUserId && availableUsers.length > 0) {
             const user = availableUsers.find(u => u.userId === selectedUserId);
+            console.log("DEBUG: Selected User:", user);
             if (user) {
                 setUserStatus(prev => ({
                     ...prev,
@@ -117,14 +155,47 @@ const GuardianDashboard = () => {
                     } : prev.location,
                     // Parse battery if it's a number, otherwise default
                     battery: typeof user.battery === 'number' ? user.battery : prev.battery,
-                    status: user.status === 'active' ? 'Safe' : 'Unknown' // Simple mapping for now
+                    status: user.userStatus || 'Safe' // Use userStatus from backend
                 }));
+
+                // Check if user status is SOS
+                const snoozeUntil = snoozeMap[user.userId] || 0;
+                const isSnoozed = Date.now() < snoozeUntil;
+
+                if (user.userStatus === 'SOS' && !isSnoozed) {
+                    setShowSOSAlert(true);
+                } else {
+                    // Check if we should auto-hide based on saftey (if safe now)
+                    if (user.userStatus !== 'SOS') {
+                        setShowSOSAlert(false);
+                        // Optional: Clear snooze if safe?
+                        // if (snoozeUntil > 0) setSnoozeMap(prev => ({ ...prev, [user.userId]: 0 }));
+                    }
+                    // Crucial: We do NOT force setShowSOSAlert(false) here if it is 'SOS' but 'isSnoozed', 
+                    // because manually hiding handled it. 
+                    // Actually, if isSnoozed is true, we want to ensure it is hidden?
+                    // YES. If SOS is true BUT snooze is valid, we hide.
+                    if (isSnoozed && showSOSAlert) {
+                        setShowSOSAlert(false);
+                    }
+                }
+
                 if (user.status === 'active') {
                     setConnectionStatus('connected');
                 }
             }
         }
-    }, [selectedUserId, availableUsers]);
+    }, [selectedUserId, availableUsers, snoozeMap]); // Added snoozeMap to dependencies
+
+    const handleAcknowledge = () => {
+        if (selectedUserId) {
+            setSnoozeMap(prev => ({
+                ...prev,
+                [selectedUserId]: Date.now() + 60000 // Snooze for 1 minute
+            }));
+        }
+        setShowSOSAlert(false);
+    };
 
     // Poll for remote updates (Real-time tracking)
     useEffect(() => {
@@ -476,7 +547,9 @@ const GuardianDashboard = () => {
                                 <h3>Current Status</h3>
                             </div>
                             <p className="status-value">{userStatus.status}</p>
-                            <span className="status-desc">Everything looks good</span>
+                            <span className="status-desc">
+                                {userStatus.status === 'SOS' ? 'Emergency Alert Active!' : 'Everything looks good'}
+                            </span>
                         </div>
 
                         <div className="device-stats">
@@ -533,7 +606,17 @@ const GuardianDashboard = () => {
                     </div>
                 </div>
             </main>
-        </div>
+
+            {
+                showSOSAlert && (
+                    <SOSAlertOverlay
+                        user={userStatus.name}
+                        location={userStatus.location}
+                        onDismiss={handleAcknowledge}
+                    />
+                )
+            }
+        </div >
     );
 };
 
