@@ -30,17 +30,17 @@ mongoose.connect(db)
     .catch(err => console.log(err));
 
 // Init Socket Stream
-require('./backend/socket_stream')(io);
+require('./socket_stream')(io);
 
 // Routes
 app.get('/', (req, res) => res.send('API RUNNING'));
-app.use('/uploads', express.static('uploads')); // Serve uploaded files
-app.use('/api/auth', require('./backend/routes/auth'));
-app.use('/api/contacts', require('./backend/routes/contacts'));
-app.use('/api/invite', require('./backend/routes/invite'));
-app.use('/api/connections', require('./backend/routes/connections'));
-app.use('/api/evidence', require('./backend/routes/evidence'));
-app.use('/api/sos', require('./backend/routes/sos'));
+app.use('/uploads', express.static(__dirname + '/uploads')); // Serve uploaded files
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/contacts', require('./routes/contacts'));
+app.use('/api/invite', require('./routes/invite'));
+app.use('/api/connections', require('./routes/connections'));
+app.use('/api/evidence', require('./routes/evidence'));
+app.use('/api/sos', require('./routes/sos'));
 
 const PORT = process.env.PORT || 5000;
 

@@ -141,7 +141,6 @@ const GuardianDashboard = () => {
     useEffect(() => {
         if (selectedUserId && availableUsers.length > 0) {
             const user = availableUsers.find(u => u.userId === selectedUserId);
-            console.log("DEBUG: Selected User:", user);
             if (user) {
                 setUserStatus(prev => ({
                     ...prev,

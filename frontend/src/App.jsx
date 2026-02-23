@@ -4,7 +4,7 @@ import { GoogleOAuthProvider } from '@react-oauth/google'
 import Dashboard from './pages/Dashboard'
 import AuthPage from './pages/AuthPage'
 import NotFoundPage from './pages/NotFoundPage'
-import GuardianDashboard from './pages/GuardianDashboard'
+import GuardianDashboard from '@admin/pages/GuardianDashboard'
 import EvidenceHistory from './pages/EvidenceHistory'
 import ProtectedRoute from './components/ProtectedRoute'
 
