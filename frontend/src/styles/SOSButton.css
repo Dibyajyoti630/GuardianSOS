@@ -22,7 +22,7 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    border: 4px solid rgba(255, 255, 255, 0.1);
+    border: 4px solid rgba(255, 69, 0, 0.4);
 }
 
 .sos-btn:active {

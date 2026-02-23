@@ -33,6 +33,8 @@
 
 .history-item {
     background: var(--color-light-bg);
+    backdrop-filter: var(--backdrop-blur);
+    -webkit-backdrop-filter: var(--backdrop-blur);
     padding: var(--spacing-md);
     border-radius: 12px;
     display: flex;
@@ -40,7 +42,7 @@
     gap: var(--spacing-md);
     cursor: pointer;
     transition: background 0.2s;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+    border: var(--border-cool);
 }
 
 .history-item:hover {

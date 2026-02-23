@@ -1,18 +1,21 @@
 :root {
   /* Colors - Dark Theme */
-  --color-primary: #ff4d5a;
-  /* Brighter SOS Red */
-  --color-primary-dark: #d00000;
+  --color-primary: #ff4500;
+  /* Red-Orange */
+  --color-primary-dark: #cc3700;
   --color-safe: #2ecc71;
   /* Bright Safe Green */
   --color-warning: #f1c40f;
 
-  --color-dark-bg: #0f172a;
-  /* Deep Blue-Black */
-  --color-light-bg: #1e293b;
-  /* Lighter Slate for cards */
-  --color-surface: #334155;
+  --color-dark-bg: #000000;
+  /* Deep Black */
+  --color-light-bg: rgba(255, 255, 255, 0.05);
+  /* Transparent Blurry Cards */
+  --color-surface: rgba(255, 255, 255, 0.08);
   /* Even lighter for interactive elements */
+
+  --backdrop-blur: blur(12px);
+  --border-cool: 1px solid rgba(255, 69, 0, 0.4);
 
   --color-text-main: #f8fafc;
   /* Almost White */
@@ -38,8 +41,8 @@
 
 /* Light Theme */
 [data-theme="light"] {
-  --color-primary: #ff4d5a;
-  --color-primary-dark: #d00000;
+  --color-primary: #ff4500;
+  --color-primary-dark: #cc3700;
   --color-safe: #10b981;
   --color-warning: #f59e0b;
 

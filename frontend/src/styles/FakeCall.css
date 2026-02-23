@@ -6,7 +6,7 @@
     right: 0;
     bottom: 0;
     z-index: 10000;
-    background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
+    background: var(--color-dark-bg);
     animation: fadeIn 0.3s ease-out;
 }
 
