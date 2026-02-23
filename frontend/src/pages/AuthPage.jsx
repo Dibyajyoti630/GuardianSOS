@@ -18,7 +18,7 @@ const AuthPage = ({ role }) => {
     const handleAuth = async (e) => {
         e.preventDefault();
 
-        const endpoint = isLogin ? 'http://127.0.0.1:5000/api/auth/login' : 'http://127.0.0.1:5000/api/auth/signup';
+        const endpoint = isLogin ? 'https://guardiansos-backend.onrender.com/api/auth/login' : 'https://guardiansos-backend.onrender.com/api/auth/signup';
 
         const body = isLogin
             ? { email: formData.email, password: formData.password }
@@ -72,7 +72,7 @@ const AuthPage = ({ role }) => {
                 const userInfo = await userInfoResponse.json();
 
                 // Send to backend for verification and user creation/login
-                const response = await fetch('http://127.0.0.1:5000/api/auth/google', {
+                const response = await fetch('https://guardiansos-backend.onrender.com/api/auth/google', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

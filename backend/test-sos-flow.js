@@ -1,7 +1,7 @@
 const io = require('socket.io-client');
 
 async function runTest() {
-    const baseUrl = 'http://127.0.0.1:5000';
+    const baseUrl = 'https://guardiansos-backend.onrender.com';
     console.log("=== Starting SOS Flow Verification ===");
 
     // 1. Signup a new user

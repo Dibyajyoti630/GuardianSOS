@@ -33,7 +33,7 @@ Emergency contacts are now stored in **MongoDB** instead of browser localStorage
 
 ### Base URL
 ```
-http://127.0.0.1:5000/api/contacts
+https://guardiansos-backend.onrender.com/api/contacts
 ```
 
 ### Authentication
@@ -250,7 +250,7 @@ The `EmergencyContacts.jsx` component now:
 const token = localStorage.getItem('token');
 
 // Fetch contacts
-const response = await fetch('http://127.0.0.1:5000/api/contacts', {
+const response = await fetch('https://guardiansos-backend.onrender.com/api/contacts', {
   method: 'GET',
   headers: {
     'x-auth-token': token,
@@ -349,13 +349,13 @@ const migrateLocalStorageContacts = async () => {
 
 **Get Contacts**:
 ```bash
-curl -X GET http://127.0.0.1:5000/api/contacts \
+curl -X GET https://guardiansos-backend.onrender.com/api/contacts \
   -H "x-auth-token: YOUR_TOKEN_HERE"
 ```
 
 **Add Contact**:
 ```bash
-curl -X POST http://127.0.0.1:5000/api/contacts \
+curl -X POST https://guardiansos-backend.onrender.com/api/contacts \
   -H "x-auth-token: YOUR_TOKEN_HERE" \
   -H "Content-Type: application/json" \
   -d '{
@@ -368,12 +368,12 @@ curl -X POST http://127.0.0.1:5000/api/contacts \
 
 **Delete Contact**:
 ```bash
-curl -X DELETE http://127.0.0.1:5000/api/contacts/CONTACT_ID \
+curl -X DELETE https://guardiansos-backend.onrender.com/api/contacts/CONTACT_ID \
   -H "x-auth-token: YOUR_TOKEN_HERE"
 ```
 
 ### Using Postman
-1. Set base URL: `http://127.0.0.1:5000/api/contacts`
+1. Set base URL: `https://guardiansos-backend.onrender.com/api/contacts`
 2. Add header: `x-auth-token: <your-token>`
 3. Test all endpoints
 

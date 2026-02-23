@@ -7,7 +7,7 @@ import QuickActions from '../components/QuickActions'
 import HistoryPreview from '../components/HistoryPreview'
 import io from 'socket.io-client';
 
-const socket = io('http://127.0.0.1:5000');
+const socket = io('https://guardiansos-backend.onrender.com');
 import '../styles/Dashboard.css'
 
 const Dashboard = () => {
@@ -21,7 +21,7 @@ const Dashboard = () => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const res = await fetch(`http://127.0.0.1:5000/api/connections/guardians?t=${new Date().getTime()}`, {
+                const res = await fetch(`https://guardiansos-backend.onrender.com/api/connections/guardians?t=${new Date().getTime()}`, {
                     headers: { 'x-auth-token': token }
                 });
 
@@ -90,7 +90,7 @@ const Dashboard = () => {
             console.log("Sending SOS with Location:", location);
 
             // 1. Trigger SOS API
-            const res = await fetch('http://127.0.0.1:5000/api/sos/trigger', {
+            const res = await fetch('https://guardiansos-backend.onrender.com/api/sos/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -129,7 +129,7 @@ const Dashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            await fetch('http://127.0.0.1:5000/api/sos/cancel', {
+            await fetch('https://guardiansos-backend.onrender.com/api/sos/cancel', {
                 method: 'POST',
                 headers: { 'x-auth-token': token }
             });

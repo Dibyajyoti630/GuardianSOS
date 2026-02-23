@@ -15,7 +15,7 @@ const EmergencyContacts = ({ isOpen, onClose }) => {
     });
 
     // API base URL
-    const API_URL = 'http://127.0.0.1:5000/api/contacts';
+    const API_URL = 'https://guardiansos-backend.onrender.com/api/contacts';
 
     // Get auth token from localStorage
     const getAuthToken = () => {

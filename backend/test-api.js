@@ -6,7 +6,7 @@
 
 async function testSignup() {
     console.log("Testing Signup API...");
-    const url = 'http://127.0.0.1:5000/api/auth/signup';
+    const url = 'https://guardiansos-backend.onrender.com/api/auth/signup';
     const body = {
         name: "API Test User",
         email: `apitest${Date.now()}@example.com`,
@@ -45,7 +45,7 @@ async function testSignup() {
 
 async function testRoot() {
     console.log("Testing Root API...");
-    const url = 'http://127.0.0.1:5000/';
+    const url = 'https://guardiansos-backend.onrender.com/';
     try {
         const response = await fetch(url);
         const text = await response.text();

@@ -77,7 +77,7 @@ After login, you'll be redirected to: http://localhost:5173/dashboard
    ```
 
 3. Verify it's running:
-   - Open: http://127.0.0.1:5000/api/contacts
+   - Open: https://guardiansos-backend.onrender.com/api/contacts
    - Should see: `{"msg":"No token, authorization denied"}`
    - This means the API is working!
 
@@ -137,7 +137,7 @@ Before using Emergency Contacts, verify:
 ### Test if API is working:
 ```bash
 # This should return: {"msg":"No token, authorization denied"}
-curl http://127.0.0.1:5000/api/contacts
+curl https://guardiansos-backend.onrender.com/api/contacts
 ```
 
 ### Test with authentication:
@@ -145,7 +145,7 @@ curl http://127.0.0.1:5000/api/contacts
 2. Copy token from localStorage
 3. Test API:
 ```bash
-curl -H "x-auth-token: YOUR_TOKEN_HERE" http://127.0.0.1:5000/api/contacts
+curl -H "x-auth-token: YOUR_TOKEN_HERE" https://guardiansos-backend.onrender.com/api/contacts
 ```
 
 Should return: `[]` (empty array if no contacts) or your contacts list

@@ -104,7 +104,7 @@ const GuardianDashboard = () => {
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://127.0.0.1:5000/api/connections/users', {
+            const response = await fetch('https://guardiansos-backend.onrender.com/api/connections/users', {
                 headers: { 'x-auth-token': token }
             });
             if (response.ok) {
@@ -212,7 +212,7 @@ const GuardianDashboard = () => {
         setConnectionStatus('sending');
 
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/invite/send', {
+            const response = await fetch('https://guardiansos-backend.onrender.com/api/invite/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -244,7 +244,7 @@ const GuardianDashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('http://127.0.0.1:5000/api/invite/verify', {
+            const response = await fetch('https://guardiansos-backend.onrender.com/api/invite/verify', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -284,7 +284,7 @@ const GuardianDashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`http://127.0.0.1:5000/api/connections/${currentUser.connectionId}`, {
+            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/${currentUser.connectionId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
