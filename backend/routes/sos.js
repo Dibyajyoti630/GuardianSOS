@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const SOS = require('../models/SOS');
 const User = require('../models/User');
 const Connection = require('../models/Connection');
+const Activity = require('../models/Activity');
 const sgMail = require('@sendgrid/mail');
 const twilio = require('twilio');
 const EmergencyContact = require('../models/EmergencyContact');
@@ -29,8 +30,29 @@ router.post('/trigger', auth, async (req, res) => {
         // 2. Update User Status
         await User.findByIdAndUpdate(req.user.id, {
             status: alertLevel,
-            lastKnownLocation: location
+            lastKnownLocation: location,
+            batteryLevel: battery !== 'Unknown' ? battery : undefined,
+            networkSignal: network !== 'Unknown' ? network : undefined
         });
+
+        // Log Activity
+        const activityText = alertLevel === 'Warning'
+            ? 'Triggered a Warning Alert'
+            : 'Triggered an SOS Emergency Alert!';
+
+        await Activity.create({
+            userId: req.user.id,
+            type: 'status',
+            text: activityText
+        });
+
+        if (location && location.address) {
+            await Activity.create({
+                userId: req.user.id,
+                type: 'location',
+                text: `Alert Location: ${location.address}`
+            });
+        }
 
         // 3. Notify Guardians & Emergency Contacts
         const connections = await Connection.find({
@@ -249,6 +271,13 @@ router.post('/cancel', auth, async (req, res) => {
         // Update User Status
         await User.findByIdAndUpdate(req.user.id, {
             status: 'Safe'
+        });
+
+        // Log Activity
+        await Activity.create({
+            userId: req.user.id,
+            type: 'status',
+            text: 'Marked as Safe. Alert cancelled.'
         });
 
         // Notify Guardians (Optional: "User is safe now")

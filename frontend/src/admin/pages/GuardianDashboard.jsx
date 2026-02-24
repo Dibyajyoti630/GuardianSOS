@@ -11,7 +11,6 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix for default marker icon in Leaflet with Webpack/Vite
-// Fix for default marker icon in Leaflet with Webpack/Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
@@ -96,17 +95,14 @@ const GuardianDashboard = () => {
         isMoving: false
     });
 
-    const [timeline, setTimeline] = useState([
-        { id: 1, type: 'status', text: 'Status updated to Safe', time: '2 mins ago', icon: Shield },
-        { id: 2, type: 'location', text: 'Arrived at Connaught Place', time: '15 mins ago', icon: MapPin },
-        { id: 3, type: 'battery', text: 'Battery level 90%', time: '1 hour ago', icon: Battery },
-    ]);
+    const [timeline, setTimeline] = useState([]);
+    const [loadingTimeline, setLoadingTimeline] = useState(false);
 
     // Fetch available connected users
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('https://guardiansos-backend.onrender.com/api/connections/users', {
+            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/users?t=${Date.now()}`, {
                 headers: { 'x-auth-token': token }
             });
             if (response.ok) {
@@ -132,6 +128,24 @@ const GuardianDashboard = () => {
             }
         } catch (error) {
             console.error('Error fetching users:', error);
+        }
+    };
+
+    // Fetch specific user timeline Activity
+    const fetchTimeline = async (userId) => {
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/users/${userId}/activity?t=${Date.now()}`, {
+                headers: { 'x-auth-token': token }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                setTimeline(data);
+            }
+        } catch (error) {
+            console.error('Error fetching timeline:', error);
+        } finally {
+            setLoadingTimeline(false);
         }
     };
 
@@ -191,8 +205,8 @@ const GuardianDashboard = () => {
                     } : prev.location,
                     // Dynamic Stats
                     battery: user.battery !== 'Unknown' ? user.battery : prev.battery,
-                    signal: user.networkSignal || 'Unknown',
-                    wifi: user.wifiStatus || 'Unknown',
+                    signal: user.networkSignal !== 'Unknown' ? user.networkSignal : prev.signal,
+                    wifi: user.wifiStatus !== 'Unknown' ? user.wifiStatus : prev.wifi,
                     isOnline: user.isOnline || false,
                     status: user.userStatus || 'Safe' // Use userStatus from backend
                 }));
@@ -223,6 +237,10 @@ const GuardianDashboard = () => {
                     setConnectionStatus('connected');
                 }
             }
+
+            // Fetch their specific timeline when switching to them
+            setLoadingTimeline(true);
+            fetchTimeline(selectedUserId);
         }
     }, [selectedUserId, availableUsers, snoozeMap]); // Added snoozeMap to dependencies
 
@@ -242,10 +260,13 @@ const GuardianDashboard = () => {
 
         const interval = setInterval(() => {
             fetchUsers();
+            if (selectedUserId) {
+                fetchTimeline(selectedUserId);
+            }
         }, 3000); // Fetch every 3 seconds for smoother updates in demo
 
         return () => clearInterval(interval);
-    }, [connectionStatus]);
+    }, [connectionStatus, selectedUserId]);
 
     const handleSendInvite = async (e) => {
         e.preventDefault();
@@ -361,6 +382,31 @@ const GuardianDashboard = () => {
 
     const currentUserConnection = availableUsers.find(u => u.userId === selectedUserId);
     const isTracking = currentUserConnection?.status === 'active';
+
+    // Timeline helpers
+    const formatTime = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins} mins ago`;
+        if (diffHours < 24) return `${diffHours} hrs ago`;
+
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const getTimelineIcon = (type) => {
+        switch (type) {
+            case 'location': return MapPin;
+            case 'battery': return Battery;
+            case 'network': return Signal;
+            case 'status': return Shield;
+            default: return Clock;
+        }
+    };
 
     // Render Connection UI if not connected AND no available users to switch to
     // OR if we are explicitly in adding mode (which we haven't implemented a separate mode for yet, 
@@ -628,17 +674,30 @@ const GuardianDashboard = () => {
                     <div className="activity-timeline">
                         <h3>Activity Timeline</h3>
                         <div className="timeline-list">
-                            {timeline.map((item) => (
-                                <div key={item.id} className="timeline-item">
-                                    <div className="timeline-icon">
-                                        <item.icon size={16} />
-                                    </div>
-                                    <div className="timeline-content">
-                                        <p>{item.text}</p>
-                                        <span>{item.time}</span>
-                                    </div>
-                                </div>
-                            ))}
+                            {loadingTimeline ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>Loading activity...</div>
+                            ) : timeline.length === 0 ? (
+                                <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>No recent activity for this user.</div>
+                            ) : (
+                                timeline.map((item) => {
+                                    const IconComponent = getTimelineIcon(item.type);
+                                    let iconColor = 'currentColor';
+                                    if (item.text.includes('SOS')) iconColor = '#ef4444';
+                                    else if (item.text.includes('Warning')) iconColor = '#f59e0b';
+
+                                    return (
+                                        <div key={item._id} className="timeline-item">
+                                            <div className="timeline-icon">
+                                                <IconComponent size={16} color={iconColor} />
+                                            </div>
+                                            <div className="timeline-content">
+                                                <p style={{ color: iconColor !== 'currentColor' ? iconColor : 'white' }}>{item.text}</p>
+                                                <span>{formatTime(item.createdAt)}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
 

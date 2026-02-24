@@ -215,28 +215,33 @@ const Dashboard = () => {
 
         // Helper to get position with timeout
         const getPosition = () => {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 if (!navigator.geolocation) {
-                    reject(new Error('Geolocation not supported'));
+                    resolve(null);
                     return;
                 }
-                navigator.geolocation.getCurrentPosition(resolve, reject, {
-                    timeout: 5000,
-                    enableHighAccuracy: true
-                });
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve(pos),
+                    () => resolve(null),
+                    {
+                        timeout: 3000,
+                        enableHighAccuracy: true
+                    }
+                );
             });
         };
 
         try {
             const position = await getPosition();
-            location = {
-                lat: position.coords.latitude,
-                lng: position.coords.longitude,
-                address: 'Fetching address...'
-            };
+            if (position) {
+                location = {
+                    lat: position.coords.latitude,
+                    lng: position.coords.longitude,
+                    address: 'Fetching address...'
+                };
+            }
         } catch (geoError) {
             console.warn("SOS: Location fetch failed, sending SOS anyway.", geoError);
-            alert("Warning: GPS failed. Sending SOS with last known details.");
         }
 
         try {

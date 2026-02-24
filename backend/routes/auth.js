@@ -3,6 +3,7 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Activity = require('../models/Activity');
 const auth = require('../middleware/auth'); // Import auth middleware
 
 // Register User
@@ -153,36 +154,24 @@ router.post('/google', async (req, res) => {
 });
 
 // Update User Status (Location & Battery)
-router.put('/update-status', async (req, res) => {
-    // Get token from header (manually check since we didn't wrap this route in auth middleware yet, or assume it's added)
-    // Actually, we should use the auth middleware. I'll import it or assume it's used if I add it to the route definition.
-    // For now, let's just use the router.put with auth middleware if possible, but I need to make sure 'auth' is available. 
-    // It is NOT imported in this file. It is used in connections.js.
-    // Let's rely on finding the user by ID from the body or just simple verification if possible, 
-    // BUT typically we need middleware.
-    // Let's add: const auth = require('../middleware/auth'); at the top of the file in a separate step or just assume I can't easily add it without context.
-    // Wait, I can see the top of the file. 'auth' is NOT imported.
-    // I will implementation a simple token check or just standard route logic if I can import auth.
-    // For now, let's just implement the logic and I will add the import in a separate tool call to be safe.
-
-    // TEMPORARY: Just update by email for easy testing without auth header complexity if needed, 
-    // BUT security wise we should use auth.
-    // Let's stick to the pattern:
-
-    // To safe-guard, I will NOT use auth middleware in this snippet, I will just trust the user ID passed in body? 
-    // No, that's insecure.
-    // I will require auth middleware at the top in a separate edit.
-
-    // Here is the route:
-    const { email, location, battery } = req.body;
+router.put('/update-status', auth, async (req, res) => {
+    // Note: Using 'auth' middleware now, so we can use req.user.id
+    // But allowing fallback to email if necessary for testing legacy integration
+    const { email, location, battery, networkSignal, wifiStatus } = req.body;
 
     try {
-        // Find user by email (easier for simulation)
-        let user = await User.findOne({ email });
+        // Find user by req.user.id first, fallback to email if testing (though auth enforces req.user)
+        let user = await User.findById(req.user.id);
+
+        if (!user && email) {
+            user = await User.findOne({ email });
+        }
 
         if (!user) {
             return res.status(404).json({ msg: 'User not found' });
         }
+
+        const activities = [];
 
         if (location) {
             user.lastKnownLocation = {
@@ -191,17 +180,67 @@ router.put('/update-status', async (req, res) => {
                 address: location.address,
                 updatedAt: new Date()
             };
+
+            // Log location activity
+            if (location.address) {
+                activities.push({
+                    userId: user._id,
+                    type: 'location',
+                    text: `Location updated: ${location.address}`
+                });
+            }
         }
 
-        if (battery) {
+        if (battery !== undefined && battery !== null) {
             user.batteryLevel = battery;
+            if (battery <= 20) {
+                activities.push({
+                    userId: user._id,
+                    type: 'battery',
+                    text: `Battery level is low: ${battery}%`
+                });
+            }
+        }
+
+        if (networkSignal !== undefined && networkSignal !== null) {
+            user.networkSignal = networkSignal;
+            activities.push({
+                userId: user._id,
+                type: 'network',
+                text: `Network signal: ${networkSignal}`
+            });
+        }
+
+        if (wifiStatus !== undefined && wifiStatus !== null) {
+            user.wifiStatus = wifiStatus;
         }
 
         await user.save();
+
+        // Save all generated activities
+        if (activities.length > 0) {
+            await Activity.insertMany(activities);
+        }
+
         res.json({ msg: 'Status updated', location: user.lastKnownLocation });
 
     } catch (err) {
         console.error('Error updating status:', err);
+        res.status(500).send('Server Error');
+    }
+});
+
+// @route   GET api/auth/activity
+// @desc    Get current user recent activity
+// @access  Private
+router.get('/activity', auth, async (req, res) => {
+    try {
+        const activities = await Activity.find({ userId: req.user.id })
+            .sort({ createdAt: -1 })
+            .limit(20);
+        res.json(activities);
+    } catch (err) {
+        console.error(err.message);
         res.status(500).send('Server Error');
     }
 });

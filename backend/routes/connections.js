@@ -4,6 +4,7 @@ const auth = require('../middleware/auth');
 const Connection = require('../models/Connection');
 const User = require('../models/User');
 const Invite = require('../models/Invite');
+const Activity = require('../models/Activity');
 const sgMail = require('@sendgrid/mail');
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY);
@@ -150,7 +151,7 @@ router.get('/users', auth, async (req, res) => {
                 email: conn.user.email,
                 status: conn.status, // connection status (active/inactive)
                 userStatus: conn.user.status || 'Safe', // user safety status (SOS/Safe)
-                battery: conn.user.batteryLevel || 'Unknown',
+                battery: conn.user.batteryLevel !== undefined && conn.user.batteryLevel !== null ? conn.user.batteryLevel : 'Unknown',
                 location: conn.user.lastKnownLocation || null,
                 isOnline: conn.user.isOnline,
                 networkSignal: conn.user.networkSignal || 'Unknown',
@@ -164,6 +165,33 @@ router.get('/users', auth, async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+
+// @route   GET api/connections/users/:userId/activity
+// @desc    Get recent activity for a specific connected user
+// @access  Private (Guardian)
+router.get('/users/:userId/activity', auth, async (req, res) => {
+    try {
+        // First verify this guardian is actually connected to this user
+        const connection = await Connection.findOne({
+            guardian: req.user.id,
+            user: req.params.userId
+        });
+
+        if (!connection) {
+            return res.status(403).json({ msg: 'Not authorized to view this user\'s activity' });
+        }
+
+        const activities = await Activity.find({ userId: req.params.userId })
+            .sort({ createdAt: -1 })
+            .limit(30);
+
+        res.json(activities);
+    } catch (err) {
+        console.error('Error fetching user activity:', err);
+        res.status(500).send('Server Error');
+    }
+});
+
 
 // @route   PUT api/connections/:id
 // @desc    Update connection status (e.g. stop/start tracking)

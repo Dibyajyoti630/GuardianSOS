@@ -9,30 +9,44 @@
     width: 160px;
     height: 160px;
     border-radius: 50%;
-    background: linear-gradient(145deg, var(--color-primary), var(--color-primary-dark));
+    background: radial-gradient(circle at 30% 30%, #ff5252, #d32f2f, #b71c1c);
     color: white;
     font-weight: 900;
-    font-size: var(--font-size-xxl);
+    font-size: var(--font-size-xxl, 2.5rem);
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
     box-shadow:
-        0 10px 25px rgba(230, 57, 70, 0.4),
-        inset 0 2px 5px rgba(255, 255, 255, 0.2);
+        0 8px 15px rgba(211, 47, 47, 0.4),
+        0 15px 35px rgba(211, 47, 47, 0.2),
+        inset 0 4px 5px rgba(255, 255, 255, 0.4),
+        inset 0 -4px 10px rgba(0, 0, 0, 0.3);
     position: relative;
-    transition: all 0.3s ease;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 10;
     display: flex;
     justify-content: center;
     align-items: center;
-    border: 4px solid rgba(255, 69, 0, 0.4);
+    border: 4px solid #ff8a80;
+    overflow: hidden;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
 }
 
-.sos-btn:active {
-    transform: scale(0.95);
-    box-shadow: 0 5px 15px rgba(230, 57, 70, 0.4);
+.sos-btn:active,
+.sos-btn.holding {
+    transform: translateY(4px) scale(0.96);
+    box-shadow:
+        0 2px 5px rgba(211, 47, 47, 0.4),
+        0 5px 15px rgba(211, 47, 47, 0.2),
+        inset 0 4px 5px rgba(255, 255, 255, 0.2),
+        inset 0 6px 15px rgba(0, 0, 0, 0.4);
+    background: radial-gradient(circle at 50% 50%, #d32f2f, #b71c1c, #900000);
 }
 
 .sos-btn.active {
-    background: linear-gradient(145deg, var(--color-warning), #d4a017);
-    animation: pulse-red 1s infinite;
+    background: radial-gradient(circle at 30% 30%, #ffca28, #f57c00, #e65100);
+    border-color: #ffe082;
+    animation: pulse-active 1.5s infinite;
 }
 
 .sos-text {
@@ -44,8 +58,56 @@
     font-weight: 700;
 }
 
-/* Ripple Animation */
-.ripple {
+/* Touch Ripple Effect */
+.touch-ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    transform: translate(-50%, -50%) scale(0);
+    animation: ripple-animation 0.6s linear;
+    pointer-events: none;
+    z-index: 11;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: translate(-50%, -50%) scale(4);
+        opacity: 0;
+    }
+}
+
+/* Hold Progress Circle */
+.hold-progress {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    transform: rotate(-90deg);
+    /* Start at top */
+    z-index: 11;
+}
+
+.hold-circle {
+    fill: none;
+    stroke: rgba(255, 255, 255, 0.9);
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 290;
+    /* 2 * PI * r (r=46 -> ~289) */
+    stroke-dashoffset: 290;
+    animation: hold-fill 2s linear forwards;
+}
+
+@keyframes hold-fill {
+    to {
+        stroke-dashoffset: 0;
+    }
+}
+
+/* Idle Ripple Animation for Active State */
+.background-ripple {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -56,13 +118,14 @@
     background: rgba(230, 57, 70, 0.4);
     z-index: -1;
     opacity: 0;
+    pointer-events: none;
 }
 
-.sos-btn:not(.active) .ripple {
+.sos-btn:not(.active) .background-ripple {
     animation: ripple-effect 3s infinite;
 }
 
-.sos-btn:not(.active) .ripple:nth-child(2) {
+.sos-btn:not(.active) .background-ripple:nth-child(2) {
     animation-delay: 1.5s;
 }
 
@@ -71,32 +134,46 @@
         width: 100%;
         height: 100%;
         opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1);
     }
 
     100% {
-        width: 250%;
-        height: 250%;
+        width: 100%;
+        height: 100%;
         opacity: 0;
+        transform: translate(-50%, -50%) scale(2.5);
     }
 }
 
-@keyframes pulse-red {
+@keyframes pulse-active {
     0% {
-        box-shadow: 0 0 0 0 rgba(233, 196, 106, 0.7);
+        box-shadow: 0 0 0 0 rgba(245, 124, 0, 0.7);
     }
 
     70% {
-        box-shadow: 0 0 0 30px rgba(233, 196, 106, 0);
+        box-shadow: 0 0 0 20px rgba(245, 124, 0, 0);
     }
 
     100% {
-        box-shadow: 0 0 0 0 rgba(233, 196, 106, 0);
+        box-shadow: 0 0 0 0 rgba(245, 124, 0, 0);
     }
 }
 
+.sos-instructions {
+    text-align: center;
+    margin-top: 10px;
+}
+
 .sos-instruction {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-sm, 0.9rem);
     color: var(--color-text-main);
     font-weight: 600;
     opacity: 0.8;
+    margin: 4px 0;
+}
+
+.highlight-instruction {
+    font-weight: 800;
+    color: #d32f2f;
+    opacity: 1;
 }
