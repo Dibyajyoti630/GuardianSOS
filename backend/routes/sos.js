@@ -47,6 +47,11 @@ router.post('/trigger', auth, async (req, res) => {
 
         let smsMessage = '';
         let emailSubject = '';
+        if (alertLevel === 'Warning') {
+            emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
+        } else {
+            emailSubject = `SOS ALERT: ${user.name} needs help!`;
+        }
 
         // Initialize Twilio
         let client;
@@ -69,7 +74,6 @@ router.post('/trigger', auth, async (req, res) => {
                 smsMessage = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.
 Time: ${formattedDate}
 Track Live: ${personalizedDashboardLink}`;
-                emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
             } else {
                 smsMessage = `URGENT SOS: ${user.name} needs help!
 Time: ${formattedDate}
@@ -77,7 +81,6 @@ Location: ${googleMapsLink}
 Battery: ${battery}%
 Network: ${network}
 Track Live: ${personalizedDashboardLink}`;
-                emailSubject = `SOS ALERT: ${user.name} needs help!`;
             }
 
             let emailHtml = '';
