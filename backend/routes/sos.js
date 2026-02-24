@@ -41,9 +41,18 @@ router.post('/trigger', auth, async (req, res) => {
         const user = await User.findById(req.user.id);
         const googleMapsLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : 'Unknown Location';
 
-        // Format Date to DD/MM/YYYY HH:mm:ss
+        // Format Date to DD/MM/YYYY HH:mm:ss in IST
         const now = new Date();
-        const formattedDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${now.toLocaleTimeString()}`;
+        const formattedDate = now.toLocaleString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        }).toUpperCase(); // e.g., 25/02/2026, 12:13:00 AM
 
         let smsMessage = '';
         let emailSubject = '';
