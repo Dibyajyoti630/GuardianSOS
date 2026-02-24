@@ -126,7 +126,12 @@ Track Live: ${personalizedDashboardLink}`;
                 text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
                 html: emailHtml
             };
-            return sgMail.send(msg);
+            return sgMail.send(msg).catch(err => {
+                console.error('Email Error (Guardian):', err.message);
+                if (err.response) {
+                    console.error('SendGrid API Error body:', err.response.body);
+                }
+            });
         });
 
         // 4. Notify Emergency Contacts (Non-App Users) via SMS (and Email if they have it)
@@ -192,7 +197,12 @@ Check GuardianSOS app!`;
                         text: contactSms,
                         html: contactEmailHtml
                     };
-                    emailPromises.push(sgMail.send(msg).catch(err => console.error('Email Error (ContactEmail):', err.message)));
+                    emailPromises.push(sgMail.send(msg).catch(err => {
+                        console.error('Email Error (ContactEmail):', err.message);
+                        if (err.response) {
+                            console.error('SendGrid API Error body:', err.response.body);
+                        }
+                    }));
                 }
             });
         }
