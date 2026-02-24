@@ -40,7 +40,7 @@ router.post('/trigger', auth, async (req, res) => {
 
         const user = await User.findById(req.user.id);
         const googleMapsLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : 'Unknown Location';
-        const dashboardLink = `http://localhost:5173/guardiansos/guardian/dashboard`; // Replace with actual domain in prod
+        const dashboardLink = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/guardiansos/guardian/dashboard` : `https://guardiansos-frontend.onrender.com/guardiansos/guardian/dashboard`;
 
         let smsMessage = '';
         let emailSubject = '';
