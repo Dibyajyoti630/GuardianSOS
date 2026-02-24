@@ -80,7 +80,7 @@ const GuardianDashboard = () => {
 
     // Simulated user state (fallback)
     const [userStatus, setUserStatus] = useState({
-        name: 'Alex User',
+        name: 'Dibya',
         status: 'Safe', // Safe, Warning, SOS
         battery: 85,
         signal: 4, // 1-4

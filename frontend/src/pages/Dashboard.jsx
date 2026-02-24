@@ -48,8 +48,29 @@ const Dashboard = () => {
         return () => clearInterval(interval);
     }, []);
 
-    // Location Watch ID
-    const [watchId, setWatchId] = React.useState(null);
+    // Continuous Location Streaming (for SOS and Guardian Tracking)
+    React.useEffect(() => {
+        let currentWatchId = null;
+
+        if ((isSOSActive || trackingInfo.isTracking) && navigator.geolocation) {
+            const token = localStorage.getItem('token');
+            if (token) {
+                currentWatchId = navigator.geolocation.watchPosition((pos) => {
+                    const newLoc = {
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude
+                    };
+                    socket.emit('update-location', { location: newLoc, token });
+                }, (err) => console.error("WatchPosition Error:", err), { enableHighAccuracy: true });
+            }
+        }
+
+        return () => {
+            if (currentWatchId !== null && navigator.geolocation) {
+                navigator.geolocation.clearWatch(currentWatchId);
+            }
+        };
+    }, [isSOSActive, trackingInfo.isTracking]);
 
     const handleSOSActivate = () => {
         setIsSOSActive(true);
@@ -102,18 +123,6 @@ const Dashboard = () => {
             if (!res.ok) throw new Error('API Error');
             console.log("SOS Triggered Successfully");
 
-            // 2. Start Streaming Location via Socket (if possible)
-            if (navigator.geolocation) {
-                const id = navigator.geolocation.watchPosition((pos) => {
-                    const newLoc = {
-                        lat: pos.coords.latitude,
-                        lng: pos.coords.longitude
-                    };
-                    socket.emit('update-location', { location: newLoc, token });
-                }, (err) => console.error("WatchPosition Error:", err), { enableHighAccuracy: true });
-                setWatchId(id);
-            }
-
         } catch (err) {
             console.error("SOS Trigger Failed", err);
             alert("Failed to send SOS Alert. Please call police manually.");
@@ -122,10 +131,6 @@ const Dashboard = () => {
 
     const handleSOSCancel = async () => {
         setIsSOSActive(false);
-        if (watchId !== null) {
-            navigator.geolocation.clearWatch(watchId);
-            setWatchId(null);
-        }
 
         try {
             const token = localStorage.getItem('token');
