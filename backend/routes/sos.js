@@ -40,52 +40,13 @@ router.post('/trigger', auth, async (req, res) => {
 
         const user = await User.findById(req.user.id);
         const googleMapsLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : 'Unknown Location';
-        const dashboardLink = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}/guardiansos/guardian/dashboard` : `https://guardiansos-frontend.onrender.com/guardiansos/guardian/dashboard`;
+
+        // Format Date to DD/MM/YYYY HH:mm:ss
+        const now = new Date();
+        const formattedDate = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${now.toLocaleTimeString()}`;
 
         let smsMessage = '';
         let emailSubject = '';
-        let emailHtml = '';
-
-        if (alertLevel === 'Warning') {
-            smsMessage = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.
-Time: ${new Date().toLocaleTimeString()}
-Track Live: ${dashboardLink}`;
-            emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
-            emailHtml = `
-                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
-                        <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
-                        <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
-                        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-                        <div style="margin-top: 20px;">
-                            <a href="${dashboardLink}" style="background-color: #eab308; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
-                        </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
-                    </div>
-                `;
-        } else {
-            smsMessage = `URGENT SOS: ${user.name} needs help!
-Time: ${new Date().toLocaleTimeString()}
-Location: ${googleMapsLink}
-Battery: ${battery}%
-Network: ${network}
-Track Live: ${dashboardLink}`;
-            emailSubject = `SOS ALERT: ${user.name} needs help!`;
-            emailHtml = `
-                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
-                        <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
-                        <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
-                        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
-                        <p><strong>Battery:</strong> ${battery}%</p>
-                        <p><strong>Network:</strong> ${network}</p>
-                        <div style="margin-top: 20px;">
-                            <a href="${dashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
-                        </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
-                    </div>
-                `;
-        }
-
 
         // Initialize Twilio
         let client;
@@ -97,6 +58,57 @@ Track Live: ${dashboardLink}`;
 
         const emailPromises = connections.map(conn => {
             if (!conn.guardian) return null;
+
+            // Generate personalized tracking link for this specific guardian
+            // Pass the target user ID and the guardian's own email so frontend can verify
+            const personalizedDashboardLink = process.env.FRONTEND_URL
+                ? `${process.env.FRONTEND_URL}/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`
+                : `https://guardiansos-frontend.onrender.com/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`;
+
+            if (alertLevel === 'Warning') {
+                smsMessage = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.
+Time: ${formattedDate}
+Track Live: ${personalizedDashboardLink}`;
+                emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
+            } else {
+                smsMessage = `URGENT SOS: ${user.name} needs help!
+Time: ${formattedDate}
+Location: ${googleMapsLink}
+Battery: ${battery}%
+Network: ${network}
+Track Live: ${personalizedDashboardLink}`;
+                emailSubject = `SOS ALERT: ${user.name} needs help!`;
+            }
+
+            let emailHtml = '';
+            if (alertLevel === 'Warning') {
+                emailHtml = `
+                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
+                        <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
+                        <p><strong>Time:</strong> ${formattedDate}</p>
+                        <div style="margin-top: 20px;">
+                            <a href="${personalizedDashboardLink}" style="background-color: #eab308; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
+                        </div>
+                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+            } else {
+                emailHtml = `
+                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
+                        <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
+                        <p><strong>Time:</strong> ${formattedDate}</p>
+                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
+                        <p><strong>Battery:</strong> ${battery}%</p>
+                        <p><strong>Network:</strong> ${network}</p>
+                        <div style="margin-top: 20px;">
+                            <a href="${personalizedDashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
+                        </div>
+                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+            }
 
             // Send SMS to Guardian if they have a phone number
             if (conn.guardian.phone && client) {
@@ -118,23 +130,67 @@ Track Live: ${dashboardLink}`;
         });
 
         // 4. Notify Emergency Contacts (Non-App Users) via SMS (and Email if they have it)
-        if (client) {
+        if (client || sgMail) {
             const contacts = await EmergencyContact.find({ userId: req.user.id });
             contacts.forEach(contact => {
-                if (contact.phone) {
+
+                // For non-app emergency contacts, they don't have a dashboard login. 
+                // Either don't send the dashboard link, or send a generic one. Let's send a generic one that tells them to use the app or call police.
+                // However user requested a dashboard, maybe we should give them a specific read-only public link later. For now, we fallback to home or a generic dashboard prompt.
+                const generalLink = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}` : `https://guardiansos-frontend.onrender.com`;
+
+                let contactSms = '';
+                let contactEmailHtml = '';
+
+                if (alertLevel === 'Warning') {
+                    contactSms = `WARNING: ${user.name} feels unsafe!
+Time: ${formattedDate}
+Check GuardianSOS App immediately!`;
+                    contactEmailHtml = `
+                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
+                        <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
+                        <p><strong>Time:</strong> ${formattedDate}</p>
+                        <p>Please contact them immediately or check the GuardianSOS app if you are a registered Guardian.</p>
+                        <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+                } else {
+                    contactSms = `URGENT SOS: ${user.name} needs help!
+Time: ${formattedDate}
+Location: ${googleMapsLink}
+Battery: ${battery}%
+Network: ${network}
+Check GuardianSOS app!`;
+                    contactEmailHtml = `
+                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
+                        <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
+                        <p><strong>Time:</strong> ${formattedDate}</p>
+                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
+                        <p><strong>Battery:</strong> ${battery}%</p>
+                        <p><strong>Network:</strong> ${network}</p>
+                        <p>Please contact emergency services or check the GuardianSOS app immediately if you are a registered Guardian.</p>
+                        <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+                }
+
+                if (contact.phone && client) {
                     client.messages.create({
-                        body: smsMessage,
+                        body: contactSms,
                         messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
                         to: contact.phone
                     }).catch(err => console.error('Twilio Error (ContactPhone):', err.message));
                 }
+
                 if (contact.email) {
                     const msg = {
                         to: contact.email,
                         from: 'guardiansosfromguardian.com@gmail.com',
                         subject: emailSubject,
-                        text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
-                        html: emailHtml
+                        text: contactSms,
+                        html: contactEmailHtml
                     };
                     emailPromises.push(sgMail.send(msg).catch(err => console.error('Email Error (ContactEmail):', err.message)));
                 }

@@ -136,8 +136,43 @@ const GuardianDashboard = () => {
     };
 
     useEffect(() => {
-        fetchUsers();
+        const loadDashboard = async () => {
+            await fetchUsers();
+        };
+        loadDashboard();
     }, []);
+
+    // Effect to handle URL parameters for email tracking links
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const targetUser = params.get('target');
+        const authEmail = params.get('auth');
+
+        if (targetUser && authEmail && availableUsers.length > 0) {
+            try {
+                // Get current logged in guardian info from JWT (or local storage if stored there)
+                // For simplicity assuming the backend verified the token and we just need to check if 
+                // the current guardian has the target user in their available users list
+                const decodedAuthEmail = decodeURIComponent(authEmail);
+
+                // Let's check if the target user is in their list of connections
+                const authorizedUser = availableUsers.find(u => u.userId === targetUser);
+
+                if (authorizedUser) {
+                    // They have access! Auto-select this user
+                    setSelectedUserId(targetUser);
+                    // Clear URL params so it doesn't persist on refresh
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                } else {
+                    // They don't have access to this user (e.g. wrong guardian account logged in)
+                    alert(`Access Denied: You are not authorized to track this user. Please ensure you are logged in with ${decodedAuthEmail}`);
+                    navigate('/guardiansos/user/login');
+                }
+            } catch (err) {
+                console.error("Error parsing auth link:", err);
+            }
+        }
+    }, [availableUsers, navigate]);
 
     // Update displayed user when selection changes or data updates
     useEffect(() => {
