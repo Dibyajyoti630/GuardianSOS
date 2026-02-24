@@ -7,6 +7,7 @@ const HistoryPreview = () => {
     const navigate = useNavigate();
     const [historyItems, setHistoryItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isExpanded, setIsExpanded] = useState(false);
 
     useEffect(() => {
         const fetchActivity = async () => {
@@ -85,19 +86,42 @@ const HistoryPreview = () => {
                 ) : historyItems.length === 0 ? (
                     <div style={{ textAlign: 'center', padding: '10px', color: '#6b7280' }}>No recent activity.</div>
                 ) : (
-                    historyItems.map((item) => (
-                        <div key={item._id} className="history-item">
-                            <div className="history-icon">
-                                {getIcon(item.type, item.text)}
+                    <>
+                        {(isExpanded ? historyItems : historyItems.slice(0, 5)).map((item) => (
+                            <div key={item._id} className="history-item">
+                                <div className="history-icon">
+                                    {getIcon(item.type, item.text)}
+                                </div>
+                                <div className="history-info" style={{ flex: 1 }}>
+                                    <span className={`history-status ${getStatusStyle(item.type, item.text)}`} style={{ display: 'block', marginBottom: '4px' }}>
+                                        {item.text}
+                                    </span>
+                                    <span className="history-date" style={{ fontSize: '0.75rem' }}>{formatTime(item.createdAt)}</span>
+                                </div>
                             </div>
-                            <div className="history-info" style={{ flex: 1 }}>
-                                <span className={`history-status ${getStatusStyle(item.type, item.text)}`} style={{ display: 'block', marginBottom: '4px' }}>
-                                    {item.text}
-                                </span>
-                                <span className="history-date" style={{ fontSize: '0.75rem' }}>{formatTime(item.createdAt)}</span>
-                            </div>
-                        </div>
-                    ))
+                        ))}
+                        {historyItems.length > 5 && (
+                            <button
+                                onClick={() => setIsExpanded(!isExpanded)}
+                                style={{
+                                    width: '100%',
+                                    padding: '10px',
+                                    marginTop: '10px',
+                                    background: 'transparent',
+                                    border: '1px solid #374151',
+                                    color: '#9ca3af',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    fontSize: '0.85rem',
+                                    transition: 'all 0.2s ease'
+                                }}
+                                onMouseOver={(e) => { e.target.style.background = '#1f2937'; e.target.style.color = 'white'; }}
+                                onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#9ca3af'; }}
+                            >
+                                {isExpanded ? 'Show Less' : `View All Activities (${historyItems.length})`}
+                            </button>
+                        )}
+                    </>
                 )}
             </div>
         </div>

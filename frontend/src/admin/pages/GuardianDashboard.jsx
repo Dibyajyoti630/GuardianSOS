@@ -97,6 +97,7 @@ const GuardianDashboard = () => {
 
     const [timeline, setTimeline] = useState([]);
     const [loadingTimeline, setLoadingTimeline] = useState(false);
+    const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
 
     // Fetch available connected users
     const fetchUsers = async () => {
@@ -684,24 +685,47 @@ const GuardianDashboard = () => {
                             ) : timeline.length === 0 ? (
                                 <div style={{ textAlign: 'center', padding: '20px', color: '#9ca3af' }}>No recent activity for this user.</div>
                             ) : (
-                                timeline.map((item) => {
-                                    const IconComponent = getTimelineIcon(item.type);
-                                    let iconColor = 'currentColor';
-                                    if (item.text.includes('SOS')) iconColor = '#ef4444';
-                                    else if (item.text.includes('Warning')) iconColor = '#f59e0b';
+                                <>
+                                    {(isTimelineExpanded ? timeline : timeline.slice(0, 5)).map((item) => {
+                                        const IconComponent = getTimelineIcon(item.type);
+                                        let iconColor = 'currentColor';
+                                        if (item.text.includes('SOS')) iconColor = '#ef4444';
+                                        else if (item.text.includes('Warning')) iconColor = '#f59e0b';
 
-                                    return (
-                                        <div key={item._id} className="timeline-item">
-                                            <div className="timeline-icon">
-                                                <IconComponent size={16} color={iconColor} />
+                                        return (
+                                            <div key={item._id} className="timeline-item">
+                                                <div className="timeline-icon">
+                                                    <IconComponent size={16} color={iconColor} />
+                                                </div>
+                                                <div className="timeline-content">
+                                                    <p style={{ color: iconColor !== 'currentColor' ? iconColor : 'white' }}>{item.text}</p>
+                                                    <span>{formatTime(item.createdAt)}</span>
+                                                </div>
                                             </div>
-                                            <div className="timeline-content">
-                                                <p style={{ color: iconColor !== 'currentColor' ? iconColor : 'white' }}>{item.text}</p>
-                                                <span>{formatTime(item.createdAt)}</span>
-                                            </div>
-                                        </div>
-                                    );
-                                })
+                                        );
+                                    })}
+                                    {timeline.length > 5 && (
+                                        <button
+                                            onClick={() => setIsTimelineExpanded(!isTimelineExpanded)}
+                                            style={{
+                                                width: '100%',
+                                                padding: '10px',
+                                                marginTop: '10px',
+                                                background: 'transparent',
+                                                border: '1px solid #374151',
+                                                color: '#9ca3af',
+                                                borderRadius: '8px',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85rem',
+                                                transition: 'all 0.2s ease'
+                                            }}
+                                            onMouseOver={(e) => { e.target.style.background = '#1f2937'; e.target.style.color = 'white'; }}
+                                            onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#9ca3af'; }}
+                                        >
+                                            {isTimelineExpanded ? 'Show Less' : `View All Activities (${timeline.length})`}
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
