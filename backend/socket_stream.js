@@ -128,6 +128,7 @@ module.exports = (io) => {
         // DYNAMIC INTERACTION LOGIC
         // -------------------------
         socket.on('user-online', async ({ token }) => {
+            console.log("RECEIVED user-online event", token ? "with token" : "without token");
             try {
                 if (!token) return;
                 const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
@@ -142,6 +143,7 @@ module.exports = (io) => {
         });
 
         socket.on('update-device-stats', async ({ battery, signal, wifi, token }) => {
+            console.log("RECEIVED update-device-stats event", { battery, signal, wifi, hasToken: !!token });
             try {
                 if (!token) return;
                 const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
@@ -153,6 +155,7 @@ module.exports = (io) => {
                 if (wifi !== undefined) updateData.wifiStatus = wifi;
 
                 await User.findByIdAndUpdate(userId, updateData);
+                console.log(`Updated stats for User ${userId}: Battery ${battery}%, Signal ${signal}, Wifi ${wifi}`);
             } catch (err) {
                 console.error('Device stats update error:', err.message);
             }
