@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, ShieldAlert, Eye, Signal, Battery } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, Eye } from 'lucide-react';
 import '../styles/StatusIndicator.css';
 
 const StatusIndicator = ({ isActive, trackingInfo }) => {
@@ -35,17 +35,6 @@ const StatusIndicator = ({ isActive, trackingInfo }) => {
             <div className="status-main">
                 {icon}
                 <span className="status-label">{text}</span>
-            </div>
-
-            <div className="system-status">
-                <div className="status-item">
-                    <Signal size={14} />
-                    <span>LTE</span>
-                </div>
-                <div className="status-item">
-                    <Battery size={14} />
-                    <span>85%</span>
-                </div>
             </div>
         </div>
     );

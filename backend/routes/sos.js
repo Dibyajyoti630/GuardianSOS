@@ -15,7 +15,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // @access  Private
 router.post('/trigger', auth, async (req, res) => {
     try {
-        const { location } = req.body; // { lat, lng, address }
+        const { location, alertLevel = 'SOS', battery = 'Unknown', network = 'Unknown' } = req.body; // { lat, lng, address }
 
         // 1. Create SOS Record
         const newSOS = new SOS({
@@ -28,7 +28,7 @@ router.post('/trigger', auth, async (req, res) => {
 
         // 2. Update User Status
         await User.findByIdAndUpdate(req.user.id, {
-            status: 'SOS',
+            status: alertLevel,
             lastKnownLocation: location
         });
 
@@ -42,10 +42,50 @@ router.post('/trigger', auth, async (req, res) => {
         const googleMapsLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : 'Unknown Location';
         const dashboardLink = `http://localhost:5173/guardiansos/guardian/dashboard`; // Replace with actual domain in prod
 
-        const smsMessage = `URGENT SOS: ${user.name} needs help!
+        let smsMessage = '';
+        let emailSubject = '';
+        let emailHtml = '';
+
+        if (alertLevel === 'Warning') {
+            smsMessage = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.
+Time: ${new Date().toLocaleTimeString()}
+Track Live: ${dashboardLink}`;
+            emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
+            emailHtml = `
+                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
+                        <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
+                        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+                        <div style="margin-top: 20px;">
+                            <a href="${dashboardLink}" style="background-color: #eab308; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
+                        </div>
+                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+        } else {
+            smsMessage = `URGENT SOS: ${user.name} needs help!
 Time: ${new Date().toLocaleTimeString()}
 Location: ${googleMapsLink}
+Battery: ${battery}%
+Network: ${network}
 Track Live: ${dashboardLink}`;
+            emailSubject = `SOS ALERT: ${user.name} needs help!`;
+            emailHtml = `
+                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
+                        <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
+                        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
+                        <p><strong>Battery:</strong> ${battery}%</p>
+                        <p><strong>Network:</strong> ${network}</p>
+                        <div style="margin-top: 20px;">
+                            <a href="${dashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
+                        </div>
+                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+        }
+
 
         // Initialize Twilio
         let client;
@@ -70,33 +110,34 @@ Track Live: ${dashboardLink}`;
             const msg = {
                 to: conn.guardian.email,
                 from: 'guardiansosfromguardian.com@gmail.com', // Replace with verified sender
-                subject: `SOS ALERT: ${user.name} needs help!`,
+                subject: emailSubject,
                 text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
-                html: `
-                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
-                        <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
-                        <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
-                        <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
-                        <div style="margin-top: 20px;">
-                            <a href="${dashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
-                        </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
-                    </div>
-                `
+                html: emailHtml
             };
             return sgMail.send(msg);
         });
 
-        // 4. Notify Emergency Contacts (Non-App Users) via SMS
+        // 4. Notify Emergency Contacts (Non-App Users) via SMS (and Email if they have it)
         if (client) {
             const contacts = await EmergencyContact.find({ userId: req.user.id });
             contacts.forEach(contact => {
-                client.messages.create({
-                    body: smsMessage,
-                    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
-                    to: contact.phone
-                }).catch(err => console.error('Twilio Error (Contact):', err.message));
+                if (contact.phone) {
+                    client.messages.create({
+                        body: smsMessage,
+                        messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+                        to: contact.phone
+                    }).catch(err => console.error('Twilio Error (ContactPhone):', err.message));
+                }
+                if (contact.email) {
+                    const msg = {
+                        to: contact.email,
+                        from: 'guardiansosfromguardian.com@gmail.com',
+                        subject: emailSubject,
+                        text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
+                        html: emailHtml
+                    };
+                    emailPromises.push(sgMail.send(msg).catch(err => console.error('Email Error (ContactEmail):', err.message)));
+                }
             });
         }
 
@@ -144,3 +185,4 @@ router.post('/cancel', auth, async (req, res) => {
 });
 
 module.exports = router;
+

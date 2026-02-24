@@ -549,18 +549,19 @@ const GuardianDashboard = () => {
 
                 <div className="info-panel">
                     <div className="status-overview">
-                        <div className={`status-card ${getStatusColor(userStatus.status)}`}>
+                        <div className={`status-card ${!userStatus.isOnline ? 'offline' : getStatusColor(userStatus.status)}`}>
                             <div className="status-header">
                                 <Shield size={24} />
                                 <h3>Current Status</h3>
                             </div>
                             <p className="status-value">
-                                {userStatus.status} {!userStatus.isOnline && <span style={{ fontSize: '14px', verticalAlign: 'middle', marginLeft: '8px' }}>(Offline)</span>}
+                                {!userStatus.isOnline ? 'Offline' : userStatus.status}
                             </p>
                             <span className="status-desc">
-                                {userStatus.status === 'SOS' ? 'Emergency Alert Active!' :
-                                    userStatus.status === 'Warning' ? 'User feels unsafe (Warning)' :
-                                        'Everything looks good'}
+                                {!userStatus.isOnline ? 'User is currently offline' :
+                                    userStatus.status === 'SOS' ? 'Emergency Alert Active!' :
+                                        userStatus.status === 'Warning' ? 'User feels unsafe (Warning)' :
+                                            'Everything looks good'}
                             </span>
                         </div>
 

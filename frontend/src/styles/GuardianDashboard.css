@@ -1016,3 +1016,13 @@
     border-color: #6b7280;
 }
 
+
+.status-card.offline {
+    border-color: rgba(156, 163, 175, 0.3);
+    background: linear-gradient(145deg, rgba(156, 163, 175, 0.05), rgba(15, 23, 42, 0.4));
+}
+
+.offline .status-value {
+    color: #9ca3af;
+    text-shadow: 0 0 20px rgba(156, 163, 175, 0.3);
+}

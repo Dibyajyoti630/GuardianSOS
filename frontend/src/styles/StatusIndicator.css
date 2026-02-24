@@ -34,17 +34,3 @@
 .status-card.danger .status-main {
     color: var(--color-primary);
 }
-
-.system-status {
-    display: flex;
-    gap: var(--spacing-md);
-    color: var(--color-text-muted);
-    font-size: 0.75rem;
-    font-weight: 600;
-}
-
-.status-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
