@@ -81,7 +81,7 @@ const GuardianDashboard = () => {
     const [userStatus, setUserStatus] = useState({
         name: '...',
         status: 'Safe', // Safe, Warning, SOS
-        battery: '--',
+        battery: 'Unknown',
         signal: 'Unknown',
         wifi: 'Unknown',
         isOnline: false,
@@ -132,7 +132,8 @@ const GuardianDashboard = () => {
     };
 
     // Fetch specific user timeline Activity
-    const fetchTimeline = async (userId) => {
+    const fetchTimeline = async (userId, isInitialLoad = false) => {
+        if (isInitialLoad) setLoadingTimeline(true);
         try {
             const token = localStorage.getItem('token');
             const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/users/${userId}/activity?t=${Date.now()}`, {
@@ -145,7 +146,7 @@ const GuardianDashboard = () => {
         } catch (error) {
             console.error('Error fetching timeline:', error);
         } finally {
-            setLoadingTimeline(false);
+            if (isInitialLoad) setLoadingTimeline(false);
         }
     };
 
@@ -203,12 +204,12 @@ const GuardianDashboard = () => {
                         lng: user.location.lng,
                         address: user.location.address || prev.location.address
                     } : prev.location,
-                    // Dynamic Stats
-                    battery: user.battery !== 'Unknown' ? user.battery : prev.battery,
-                    signal: user.networkSignal !== 'Unknown' ? user.networkSignal : prev.signal,
-                    wifi: user.wifiStatus !== 'Unknown' ? user.wifiStatus : prev.wifi,
-                    isOnline: user.isOnline || false,
-                    status: user.userStatus || 'Safe' // Use userStatus from backend
+                    // Dynamic Stats. Ensure we don't fall back to "Unknown" if we already had a real value locally.
+                    battery: (user.battery !== 'Unknown' && user.battery !== undefined) ? user.battery : prev.battery,
+                    signal: (user.networkSignal !== 'Unknown' && user.networkSignal !== undefined) ? user.networkSignal : prev.signal,
+                    wifi: (user.wifiStatus !== 'Unknown' && user.wifiStatus !== undefined) ? user.wifiStatus : prev.wifi,
+                    isOnline: user.isOnline !== undefined ? user.isOnline : prev.isOnline,
+                    status: user.userStatus || prev.status || 'Safe' // Use userStatus from backend
                 }));
 
                 // Check if user status is SOS
@@ -238,9 +239,12 @@ const GuardianDashboard = () => {
                 }
             }
 
-            // Fetch their specific timeline when switching to them
-            setLoadingTimeline(true);
-            fetchTimeline(selectedUserId);
+            // Fetch their specific timeline when switching to them (initial load visually)
+            // We don't want to show the loading spinner during the background polling
+            // But we do want to show it the VERY FIRST TIME they are selected
+            // We can determine this by checking if timeline is empty
+            const isFirstLoad = timeline.length === 0;
+            fetchTimeline(selectedUserId, isFirstLoad);
         }
     }, [selectedUserId, availableUsers, snoozeMap]); // Added snoozeMap to dependencies
 
@@ -261,7 +265,8 @@ const GuardianDashboard = () => {
         const interval = setInterval(() => {
             fetchUsers();
             if (selectedUserId) {
-                fetchTimeline(selectedUserId);
+                // Background poll, no loading spinner
+                fetchTimeline(selectedUserId, false);
             }
         }, 3000); // Fetch every 3 seconds for smoother updates in demo
 
@@ -650,21 +655,21 @@ const GuardianDashboard = () => {
                             <div className="stat-card">
                                 <Battery size={20} className={userStatus.battery < 20 && typeof userStatus.battery === 'number' ? 'low-battery' : ''} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value">{userStatus.battery}{typeof userStatus.battery === 'number' ? '%' : ''}</span>
+                                    <span className="stat-value">{userStatus.battery !== 'Unknown' ? `${userStatus.battery}%` : '--'}</span>
                                     <span className="stat-label">Battery</span>
                                 </div>
                             </div>
                             <div className="stat-card">
                                 <Signal size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.signal}</span>
+                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.signal !== 'Unknown' ? userStatus.signal : '--'}</span>
                                     <span className="stat-label">Network</span>
                                 </div>
                             </div>
                             <div className="stat-card">
                                 <Wifi size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.wifi}</span>
+                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.wifi !== 'Unknown' ? userStatus.wifi : '--'}</span>
                                     <span className="stat-label">WiFi</span>
                                 </div>
                             </div>
