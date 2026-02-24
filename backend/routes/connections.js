@@ -140,7 +140,7 @@ router.get('/users', auth, async (req, res) => {
     try {
         const connections = await Connection.find({
             guardian: req.user.id
-        }).populate('user', 'name email profilePicture emergencyContact batteryLevel lastKnownLocation status');
+        }).populate('user', 'name email profilePicture emergencyContact batteryLevel lastKnownLocation status isOnline networkSignal wifiStatus');
 
         const userList = connections.map(conn => {
             return {
@@ -151,7 +151,10 @@ router.get('/users', auth, async (req, res) => {
                 status: conn.status, // connection status (active/inactive)
                 userStatus: conn.user.status || 'Safe', // user safety status (SOS/Safe)
                 battery: conn.user.batteryLevel || 'Unknown',
-                location: conn.user.lastKnownLocation || null
+                location: conn.user.lastKnownLocation || null,
+                isOnline: conn.user.isOnline,
+                networkSignal: conn.user.networkSignal || 'Unknown',
+                wifiStatus: conn.user.wifiStatus || 'Unknown'
             };
         });
 

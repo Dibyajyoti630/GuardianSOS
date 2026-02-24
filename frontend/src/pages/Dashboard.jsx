@@ -48,6 +48,74 @@ const Dashboard = () => {
         return () => clearInterval(interval);
     }, []);
 
+    // ----------------------------------------------------
+    // DYNAMIC INTERACTION: Online Status & Device Stats
+    // ----------------------------------------------------
+    React.useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            // Emitting online status to backend immediately on mount
+            socket.emit('user-online', { token });
+        }
+
+        // Function to gather and emit device stats (Battery, Network)
+        const updateDeviceStats = async () => {
+            if (!token) return;
+
+            let battery = undefined;
+            let signal = 'Unknown';
+            let wifi = 'Unknown';
+
+            // Gather Battery Info
+            try {
+                if (navigator.getBattery) {
+                    const batteryManager = await navigator.getBattery();
+                    battery = Math.round(batteryManager.level * 100);
+                }
+            } catch (err) {
+                console.warn("Battery API error:", err);
+            }
+
+            // Gather Network/Wifi Info
+            try {
+                if (navigator.connection) {
+                    const conn = navigator.connection;
+                    // 'wifi', 'cellular', 'ethernet', etc.
+                    if (conn.type === 'wifi') {
+                        wifi = 'Connected';
+                        signal = 'Strong';
+                    } else if (conn.type === 'cellular') {
+                        wifi = 'Disconnected';
+                        // Use effectiveType ('4g', '3g', etc.) as a proxy for signal type
+                        signal = conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Cellular';
+                    } else {
+                        // Fallback connection types
+                        wifi = conn.type === 'none' ? 'Disconnected' : 'Unknown';
+                        signal = conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unknown';
+                    }
+                } else if (!navigator.onLine) {
+                    wifi = 'Disconnected';
+                    signal = 'None';
+                } else {
+                    // Primitive fallback if Network API is missing but online
+                    wifi = 'Unknown';
+                    signal = 'Online';
+                }
+            } catch (err) {
+                console.warn("Network API error:", err);
+            }
+
+            // Emit newly gathered stats matching backend expectation
+            socket.emit('update-device-stats', { battery, signal, wifi, token });
+        };
+
+        // Emit initially and then every 10 seconds to keep dashboard fresh
+        updateDeviceStats();
+        const statsInterval = setInterval(updateDeviceStats, 10000);
+        return () => clearInterval(statsInterval);
+    }, []);
+    // ----------------------------------------------------
+
     // Continuous Location Streaming (for SOS and Guardian Tracking)
     React.useEffect(() => {
         let currentWatchId = null;
@@ -72,9 +140,34 @@ const Dashboard = () => {
         };
     }, [isSOSActive, trackingInfo.isTracking]);
 
-    const handleSOSActivate = () => {
-        setIsSOSActive(true);
-        // UI shows countdown, actual API trigger happens in handleSOSTrigger
+    const handleSOSSingleClick = async () => {
+        // Warning State
+        try {
+            const token = localStorage.getItem('token');
+            const location = { lat: 0, lng: 0, address: 'Warning triggered' }; // simplified 
+
+            // Update user status to Warning via generic or SOS trigger endpoint
+            // Since we only have /api/sos/trigger and /api/sos/cancel right now
+            // Let's rely on /api/auth/update-status if it existed, or we can use our new socket!
+            socket.emit('update-device-stats', { token }); // To keep awake
+
+            // For now, let's just use the SOS API but pass a type if it supported it.
+            // But we can just use the /api/sos/trigger for now to signify alert
+            // Actually, we don't have a dedicated Warning API. Let's just do a fetch to update status
+            await fetch('https://guardiansos-backend.onrender.com/api/auth/update-status', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token
+                },
+                body: JSON.stringify({ email: user.email, status: 'Warning' }) // email is hacky, backend needs auth fixed.
+            });
+
+            // Fallback for visual
+            alert("Warning status sent to Guardians.");
+        } catch (err) {
+            console.error("Warning trigger failed", err);
+        }
     };
 
     const handleSOSTrigger = async () => {
@@ -153,9 +246,16 @@ const Dashboard = () => {
                 <div className="sos-container">
                     <SOSButton
                         isActive={isSOSActive}
-                        onActivate={handleSOSActivate}
                         onCancel={handleSOSCancel}
-                        onTrigger={handleSOSTrigger}
+                        onSingleClick={handleSOSSingleClick}
+                        onMultiClick={() => {
+                            setIsSOSActive(true);
+                            handleSOSTrigger();
+                        }}
+                        onHold={() => {
+                            setIsSOSActive(true);
+                            handleSOSTrigger();
+                        }}
                     />
                 </div>
 

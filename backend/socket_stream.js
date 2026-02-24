@@ -12,6 +12,9 @@ module.exports = (io) => {
         // Map to keep track of write streams for this socket
         const activeStreams = new Map();
 
+        // Track which user this socket belongs to for online status
+        socket.userId = null;
+
         // -------------------------
         // MEDIA STREAMING LOGIC
         // -------------------------
@@ -121,12 +124,57 @@ module.exports = (io) => {
             }
         });
 
-        socket.on('disconnect', () => {
+        // -------------------------
+        // DYNAMIC INTERACTION LOGIC
+        // -------------------------
+        socket.on('user-online', async ({ token }) => {
+            try {
+                if (!token) return;
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                const userId = decoded.user.id;
+                socket.userId = userId; // Associate socket with user
+
+                await User.findByIdAndUpdate(userId, { isOnline: true });
+                console.log(`User ${userId} came ONLINE via socket`);
+            } catch (err) {
+                console.error('User online error:', err.message);
+            }
+        });
+
+        socket.on('update-device-stats', async ({ battery, signal, wifi, token }) => {
+            try {
+                if (!token) return;
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                const userId = decoded.user.id;
+
+                const updateData = {};
+                if (battery !== undefined) updateData.batteryLevel = battery;
+                if (signal !== undefined) updateData.networkSignal = signal;
+                if (wifi !== undefined) updateData.wifiStatus = wifi;
+
+                await User.findByIdAndUpdate(userId, updateData);
+            } catch (err) {
+                console.error('Device stats update error:', err.message);
+            }
+        });
+
+        socket.on('disconnect', async () => {
             // Close all active streams for this socket
             activeStreams.forEach((info) => {
                 if (info.stream) info.stream.end();
             });
             activeStreams.clear();
+
+            // Mark user offline if they were authenticated
+            if (socket.userId) {
+                try {
+                    await User.findByIdAndUpdate(socket.userId, { isOnline: false });
+                    console.log(`User ${socket.userId} went OFFLINE`);
+                } catch (err) {
+                    console.error('Offline update error:', err.message);
+                }
+            }
+
             console.log('Client disconnected from socket');
         });
     });

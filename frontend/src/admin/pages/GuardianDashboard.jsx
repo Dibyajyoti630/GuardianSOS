@@ -80,15 +80,17 @@ const GuardianDashboard = () => {
 
     // Simulated user state (fallback)
     const [userStatus, setUserStatus] = useState({
-        name: 'Dibya',
+        name: '...',
         status: 'Safe', // Safe, Warning, SOS
-        battery: 85,
-        signal: 4, // 1-4
+        battery: '--',
+        signal: 'Unknown',
+        wifi: 'Unknown',
+        isOnline: false,
         lastUpdate: new Date(),
         location: {
             lat: 28.6139,
             lng: 77.2090,
-            address: 'Connaught Place, New Delhi'
+            address: 'Waiting for location...'
         },
         speed: 0, // km/h
         isMoving: false
@@ -152,8 +154,11 @@ const GuardianDashboard = () => {
                         lng: user.location.lng,
                         address: user.location.address || prev.location.address
                     } : prev.location,
-                    // Parse battery if it's a number, otherwise default
-                    battery: typeof user.battery === 'number' ? user.battery : prev.battery,
+                    // Dynamic Stats
+                    battery: user.battery !== 'Unknown' ? user.battery : prev.battery,
+                    signal: user.networkSignal || 'Unknown',
+                    wifi: user.wifiStatus || 'Unknown',
+                    isOnline: user.isOnline || false,
                     status: user.userStatus || 'Safe' // Use userStatus from backend
                 }));
 
@@ -454,7 +459,11 @@ const GuardianDashboard = () => {
                                         }}
                                     >
                                         <span>{u.name}</span>
-                                        <span className={`status-dot ${u.status === 'active' ? 'active' : 'inactive'}`}></span>
+                                        {/* Status dot indicates active tracking + if they are online */}
+                                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                            {u.isOnline === false && <span style={{ fontSize: '10px', color: '#9ca3af' }}>Offline</span>}
+                                            <span className={`status-dot ${u.status === 'active' ? 'active' : 'inactive'}`}></span>
+                                        </div>
                                     </div>
                                 ))}
                                 <div className="dropdown-divider"></div>
@@ -545,32 +554,36 @@ const GuardianDashboard = () => {
                                 <Shield size={24} />
                                 <h3>Current Status</h3>
                             </div>
-                            <p className="status-value">{userStatus.status}</p>
+                            <p className="status-value">
+                                {userStatus.status} {!userStatus.isOnline && <span style={{ fontSize: '14px', verticalAlign: 'middle', marginLeft: '8px' }}>(Offline)</span>}
+                            </p>
                             <span className="status-desc">
-                                {userStatus.status === 'SOS' ? 'Emergency Alert Active!' : 'Everything looks good'}
+                                {userStatus.status === 'SOS' ? 'Emergency Alert Active!' :
+                                    userStatus.status === 'Warning' ? 'User feels unsafe (Warning)' :
+                                        'Everything looks good'}
                             </span>
                         </div>
 
                         <div className="device-stats">
                             <div className="stat-card">
-                                <Battery size={20} className={userStatus.battery < 20 ? 'low-battery' : ''} />
+                                <Battery size={20} className={userStatus.battery < 20 && typeof userStatus.battery === 'number' ? 'low-battery' : ''} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value">{userStatus.battery}%</span>
+                                    <span className="stat-value">{userStatus.battery}{typeof userStatus.battery === 'number' ? '%' : ''}</span>
                                     <span className="stat-label">Battery</span>
                                 </div>
                             </div>
                             <div className="stat-card">
-                                <Signal size={20} />
+                                <Signal size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value">Strong</span>
-                                    <span className="stat-label">Signal</span>
+                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.signal}</span>
+                                    <span className="stat-label">Network</span>
                                 </div>
                             </div>
                             <div className="stat-card">
-                                <Wifi size={20} />
+                                <Wifi size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value">On</span>
-                                    <span className="stat-label">Internet</span>
+                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.wifi}</span>
+                                    <span className="stat-label">WiFi</span>
                                 </div>
                             </div>
                         </div>

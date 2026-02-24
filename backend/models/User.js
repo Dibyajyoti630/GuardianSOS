@@ -54,6 +54,16 @@ const userSchema = new mongoose.Schema({
     },
     batteryLevel: {
         type: Number
+    },
+    isOnline: {
+        type: Boolean,
+        default: false
+    },
+    networkSignal: {
+        type: String // e.g. "4G", "LTE", "5G", "Strong", "Weak"
+    },
+    wifiStatus: {
+        type: String // e.g. "Connected", "Disconnected"
     }
 });
 
