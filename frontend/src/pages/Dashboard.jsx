@@ -218,11 +218,23 @@ const Dashboard = () => {
         setIsSOSActive(true);
         try {
             const token = localStorage.getItem('token');
-            const location = { lat: 0, lng: 0, address: 'Warning triggered' };
+            let location = { lat: 0, lng: 0, address: 'Warning triggered' };
+
+            // Try to get real location for the warning too
+            if (navigator.geolocation) {
+                try {
+                    const pos = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000, enableHighAccuracy: true });
+                    });
+                    location = { lat: pos.coords.latitude, lng: pos.coords.longitude, address: 'Warning location' };
+                } catch (e) {
+                    console.warn('Could not get location for warning:', e);
+                }
+            }
 
             socket.emit('update-device-stats', { token });
 
-            await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
+            const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -231,9 +243,13 @@ const Dashboard = () => {
                 body: JSON.stringify({ location, alertLevel: 'Warning' })
             });
 
-            alert("Warning status sent to Guardians.");
+            if (!res.ok) {
+                throw new Error(`Warning trigger returned ${res.status}`);
+            }
+
+            console.log('Warning status sent to Guardians successfully.');
         } catch (err) {
-            console.error("Warning trigger failed", err);
+            console.error('Warning trigger failed', err);
             setIsSOSActive(false);
         }
     };

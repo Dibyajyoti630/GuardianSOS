@@ -54,7 +54,10 @@ router.post('/trigger', auth, async (req, res) => {
             });
         }
 
-        // 3. Notify Guardians & Emergency Contacts
+        // 3. Respond to frontend IMMEDIATELY (don't wait for emails)
+        res.json(newSOS);
+
+        // 4. Notify Guardians & Emergency Contacts (fire-and-forget, after response)
         const connections = await Connection.find({
             user: req.user.id,
             status: 'active'
@@ -74,7 +77,7 @@ router.post('/trigger', auth, async (req, res) => {
             minute: '2-digit',
             second: '2-digit',
             hour12: true
-        }).toUpperCase(); // e.g., 25/02/2026, 12:13:00 AM
+        }).toUpperCase();
 
         let smsMessage = '';
         let emailSubject = '';
@@ -92,11 +95,11 @@ router.post('/trigger', auth, async (req, res) => {
             console.error("Twilio Init Failed", e);
         }
 
+        console.log(`[SOS] Sending notifications to ${connections.length} guardian(s) for alert level: ${alertLevel}`);
+
         const emailPromises = connections.map(conn => {
             if (!conn.guardian) return null;
 
-            // Generate personalized tracking link for this specific guardian
-            // Pass the target user ID and the guardian's own email so frontend can verify
             const personalizedDashboardLink = process.env.FRONTEND_URL
                 ? `${process.env.FRONTEND_URL}/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`
                 : `https://guardiansos-frontend.onrender.com/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`;
@@ -155,27 +158,27 @@ Track Live: ${personalizedDashboardLink}`;
 
             const msg = {
                 to: conn.guardian.email,
-                from: 'guardiansosfromguardian.com@gmail.com', // Replace with verified sender
+                from: 'guardiansosfromguardian.com@gmail.com', // Must be a verified sender in SendGrid
                 subject: emailSubject,
                 text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
                 html: emailHtml
             };
-            return sgMail.send(msg).catch(err => {
-                console.error('Email Error (Guardian):', err.message);
+            console.log(`[SOS] Sending email to: ${conn.guardian.email}`);
+            return sgMail.send(msg).then(() => {
+                console.log(`[SOS] Email sent successfully to: ${conn.guardian.email}`);
+            }).catch(err => {
+                console.error(`[SOS] Email FAILED to: ${conn.guardian.email}`, err.message);
                 if (err.response) {
-                    console.error('SendGrid API Error body:', err.response.body);
+                    console.error('[SOS] SendGrid Error body:', JSON.stringify(err.response.body));
                 }
             });
         });
 
-        // 4. Notify Emergency Contacts (Non-App Users) via SMS (and Email if they have it)
+        // 5. Notify Emergency Contacts (Non-App Users) via SMS (and Email if they have it)
         if (client || sgMail) {
             const contacts = await EmergencyContact.find({ userId: req.user.id });
             contacts.forEach(contact => {
 
-                // For non-app emergency contacts, they don't have a dashboard login. 
-                // Either don't send the dashboard link, or send a generic one. Let's send a generic one that tells them to use the app or call police.
-                // However user requested a dashboard, maybe we should give them a specific read-only public link later. For now, we fallback to home or a generic dashboard prompt.
                 const generalLink = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}` : `https://guardiansos-frontend.onrender.com`;
 
                 let contactSms = '';
@@ -231,19 +234,24 @@ Check GuardianSOS app!`;
                         text: contactSms,
                         html: contactEmailHtml
                     };
-                    emailPromises.push(sgMail.send(msg).catch(err => {
-                        console.error('Email Error (ContactEmail):', err.message);
+                    emailPromises.push(sgMail.send(msg).then(() => {
+                        console.log(`[SOS] Email sent to emergency contact: ${contact.email}`);
+                    }).catch(err => {
+                        console.error(`[SOS] Email FAILED to emergency contact: ${contact.email}`, err.message);
                         if (err.response) {
-                            console.error('SendGrid API Error body:', err.response.body);
+                            console.error('[SOS] SendGrid Error body:', JSON.stringify(err.response.body));
                         }
                     }));
                 }
             });
         }
 
-        await Promise.all(emailPromises.filter(p => p !== null));
-
-        res.json(newSOS);
+        // Wait for all emails/SMS in background (doesn't block response)
+        Promise.all(emailPromises.filter(p => p !== null)).then(() => {
+            console.log('[SOS] All notifications processed.');
+        }).catch(err => {
+            console.error('[SOS] Some notifications failed:', err);
+        });
 
     } catch (err) {
         console.error('Error triggering SOS:', err);
