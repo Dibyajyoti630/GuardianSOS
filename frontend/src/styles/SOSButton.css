@@ -30,6 +30,7 @@
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
 }
 
 .sos-btn:active,

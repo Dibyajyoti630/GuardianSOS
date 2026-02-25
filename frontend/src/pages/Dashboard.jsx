@@ -8,7 +8,7 @@ import HistoryPreview from '../components/HistoryPreview'
 import { ShieldCheck } from 'lucide-react';
 import io from 'socket.io-client';
 
-const socket = io('https://guardiansos-backend.onrender.com');
+const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '');
 import '../styles/Dashboard.css'
 
 const Dashboard = () => {
@@ -112,7 +112,7 @@ const Dashboard = () => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const res = await fetch(`https://guardiansos-backend.onrender.com/api/auth/me`, {
+                const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/me`, {
                     headers: { 'x-auth-token': token }
                 });
 
@@ -138,7 +138,7 @@ const Dashboard = () => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const res = await fetch(`https://guardiansos-backend.onrender.com/api/connections/guardians?t=${new Date().getTime()}`, {
+                const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/guardians?t=${new Date().getTime()}`, {
                     headers: { 'x-auth-token': token }
                 });
 
@@ -222,7 +222,7 @@ const Dashboard = () => {
 
             socket.emit('update-device-stats', { token });
 
-            await fetch('https://guardiansos-backend.onrender.com/api/sos/trigger', {
+            await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -280,7 +280,7 @@ const Dashboard = () => {
             console.log("Sending SOS with Location:", location, "Stats:", stats);
 
             // 1. Trigger SOS API
-            const res = await fetch('https://guardiansos-backend.onrender.com/api/sos/trigger', {
+            const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -309,7 +309,7 @@ const Dashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            await fetch('https://guardiansos-backend.onrender.com/api/sos/cancel', {
+            await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/cancel', {
                 method: 'POST',
                 headers: { 'x-auth-token': token }
             });

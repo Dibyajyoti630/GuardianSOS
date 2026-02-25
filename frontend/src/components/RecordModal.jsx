@@ -22,7 +22,7 @@ const RecordModal = ({ isOpen, onClose }) => {
 
     useEffect(() => {
         // Init Socket
-        socketRef.current = io('https://guardiansos-backend.onrender.com');
+        socketRef.current = io((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '');
 
         // Get user from local storage
         try {

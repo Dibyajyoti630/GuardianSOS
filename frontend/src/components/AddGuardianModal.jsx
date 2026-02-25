@@ -19,7 +19,7 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
         setStep('sending');
 
         try {
-            const response = await fetch('https://guardiansos-backend.onrender.com/api/invite/send', {
+            const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/invite/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'

@@ -34,7 +34,7 @@ const DashboardHeader = ({ user }) => {
                 // Only fetch if token is present
                 if (!token) return;
 
-                const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/guardians?t=${new Date().getTime()}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/guardians?t=${new Date().getTime()}`, {
                     headers: {
                         'x-auth-token': token,
                         'Cache-Control': 'no-cache',

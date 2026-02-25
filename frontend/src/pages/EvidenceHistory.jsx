@@ -15,7 +15,7 @@ const EvidenceHistory = () => {
     const fetchEvidence = async () => {
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch('https://guardiansos-backend.onrender.com/api/evidence', {
+            const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/evidence', {
                 headers: { 'x-auth-token': token }
             });
 
@@ -39,7 +39,7 @@ const EvidenceHistory = () => {
         // filePath in DB is like '/uploads/fileName.webm'
         // Need to prepend server base URL if it's relative
         if (filePath.startsWith('http')) return filePath;
-        return `https://guardiansos-backend.onrender.com${filePath}`;
+        return `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}${filePath}`;
     };
 
     return (

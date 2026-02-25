@@ -125,6 +125,7 @@ const SOSButton = ({ isActive, onCancel, onSingleClick, onMultiClick, onHold }) 
                 onPointerDown={handlePointerDown}
                 onPointerUp={handlePointerUp}
                 onPointerLeave={handlePointerLeave}
+                onPointerCancel={handlePointerLeave}
                 onContextMenu={(e) => e.preventDefault()}
                 style={{ touchAction: 'none' }} // Ensure no gestures interfere (e.g., zoom/scroll)
             >

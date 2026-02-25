@@ -15,7 +15,7 @@ const EmergencyContacts = ({ isOpen, onClose }) => {
     });
 
     // API base URL
-    const API_URL = 'https://guardiansos-backend.onrender.com/api/contacts';
+    const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/contacts';
 
     // Get auth token from localStorage
     const getAuthToken = () => {

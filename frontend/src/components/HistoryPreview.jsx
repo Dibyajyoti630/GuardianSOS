@@ -15,7 +15,7 @@ const HistoryPreview = () => {
                 const token = localStorage.getItem('token');
                 if (!token) return;
 
-                const response = await fetch(`https://guardiansos-backend.onrender.com/api/auth/activity?t=${Date.now()}`, {
+                const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/activity?t=${Date.now()}`, {
                     headers: { 'x-auth-token': token }
                 });
 

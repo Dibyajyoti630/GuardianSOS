@@ -104,7 +104,7 @@ const GuardianDashboard = () => {
     const fetchUsers = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/users?t=${Date.now()}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/users?t=${Date.now()}`, {
                 headers: { 'x-auth-token': token }
             });
             if (response.ok) {
@@ -140,7 +140,7 @@ const GuardianDashboard = () => {
         if (isInitialLoad) setLoadingTimeline(true);
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/users/${userId}/activity?t=${Date.now()}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/users/${userId}/activity?t=${Date.now()}`, {
                 headers: { 'x-auth-token': token }
             });
             if (response.ok) {
@@ -262,13 +262,13 @@ const GuardianDashboard = () => {
         setShowSOSAlert(false);
     };
 
-    // Poll for remote updates (Real-time tracking)
+    // Poll for remote updates (Real-time tracking and fetching available users)
     useEffect(() => {
-        if (connectionStatus !== 'connected') return;
-
         const interval = setInterval(() => {
             fetchUsers();
-            if (selectedUserId) {
+
+            // Only fetch timeline if someone is connected and selected
+            if (connectionStatus === 'connected' && selectedUserId) {
                 // Background poll, no loading spinner
                 fetchTimeline(selectedUserId, false);
             }
@@ -282,7 +282,7 @@ const GuardianDashboard = () => {
         setConnectionStatus('sending');
 
         try {
-            const response = await fetch('https://guardiansos-backend.onrender.com/api/invite/send', {
+            const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/invite/send', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -314,7 +314,7 @@ const GuardianDashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('https://guardiansos-backend.onrender.com/api/invite/verify', {
+            const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/invite/verify', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -354,7 +354,7 @@ const GuardianDashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/${currentUser.connectionId}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/${currentUser.connectionId}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',

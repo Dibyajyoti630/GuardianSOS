@@ -9,7 +9,7 @@ const ManageGuardiansModal = ({ isOpen, onClose }) => {
     const fetchGuardians = async () => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch('https://guardiansos-backend.onrender.com/api/connections/guardians', {
+            const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/connections/guardians', {
                 headers: {
                     'x-auth-token': token
                 }
@@ -39,7 +39,7 @@ const ManageGuardiansModal = ({ isOpen, onClose }) => {
 
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`https://guardiansos-backend.onrender.com/api/connections/${id}?type=${type}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/${id}?type=${type}`, {
                 method: 'DELETE',
                 headers: {
                     'x-auth-token': token
