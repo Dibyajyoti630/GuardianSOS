@@ -71,6 +71,7 @@ const GuardianDashboard = () => {
 
     const [availableUsers, setAvailableUsers] = useState([]);
     const [selectedUserId, setSelectedUserId] = useState(null);
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
 
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showSOSAlert, setShowSOSAlert] = useState(false);
@@ -129,6 +130,8 @@ const GuardianDashboard = () => {
             }
         } catch (error) {
             console.error('Error fetching users:', error);
+        } finally {
+            setIsLoadingUsers(false);
         }
     };
 
@@ -419,6 +422,18 @@ const GuardianDashboard = () => {
     // but connectionStatus 'initial' usually implies empty state).
     // However, since we now support multiple users, 'initial' should only show if we have NO users.
     const showInviteFlow = availableUsers.length === 0 && connectionStatus !== 'connected';
+
+    if (isLoadingUsers) {
+        return (
+            <div className="guardian-dashboard connection-mode">
+                <div className="connection-card" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '300px' }}>
+                    <RefreshCw size={48} className="map-pin-pulse" style={{ color: '#3b82f6', marginBottom: '1rem', animationDuration: '1s' }} />
+                    <h2>Loading Dashboard...</h2>
+                    <p className="step-desc">Fetching your connected users</p>
+                </div>
+            </div>
+        );
+    }
 
     if (showInviteFlow || connectionStatus === 'sending' || connectionStatus === 'sent') {
         return (

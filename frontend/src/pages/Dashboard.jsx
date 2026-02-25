@@ -5,6 +5,7 @@ import StatusIndicator from '../components/StatusIndicator'
 import LocationCard from '../components/LocationCard'
 import QuickActions from '../components/QuickActions'
 import HistoryPreview from '../components/HistoryPreview'
+import { ShieldCheck } from 'lucide-react';
 import io from 'socket.io-client';
 
 const socket = io('https://guardiansos-backend.onrender.com');
@@ -106,6 +107,32 @@ const Dashboard = () => {
     };
 
     React.useEffect(() => {
+        const fetchInitialStatus = async () => {
+            try {
+                const token = localStorage.getItem('token');
+                if (!token) return;
+
+                const res = await fetch(`https://guardiansos-backend.onrender.com/api/auth/me`, {
+                    headers: { 'x-auth-token': token }
+                });
+
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.status === 'SOS' || data.status === 'Warning') {
+                        setIsSOSActive(true);
+                    } else {
+                        setIsSOSActive(false);
+                    }
+                }
+            } catch (err) {
+                console.error("Error fetching initial status:", err);
+            }
+        };
+
+        fetchInitialStatus();
+    }, []);
+
+    React.useEffect(() => {
         const checkTrackingStatus = async () => {
             try {
                 const token = localStorage.getItem('token');
@@ -188,6 +215,7 @@ const Dashboard = () => {
 
     const handleSOSSingleClick = async () => {
         // Warning State
+        setIsSOSActive(true);
         try {
             const token = localStorage.getItem('token');
             const location = { lat: 0, lng: 0, address: 'Warning triggered' };
@@ -206,6 +234,7 @@ const Dashboard = () => {
             alert("Warning status sent to Guardians.");
         } catch (err) {
             console.error("Warning trigger failed", err);
+            setIsSOSActive(false);
         }
     };
 
@@ -296,7 +325,7 @@ const Dashboard = () => {
             <main className="dashboard-content">
                 <StatusIndicator isActive={isSOSActive} trackingInfo={trackingInfo} />
 
-                <div className="sos-container">
+                <div className="sos-container" style={{ flexDirection: 'column', gap: '1.5rem' }}>
                     <SOSButton
                         isActive={isSOSActive}
                         onCancel={handleSOSCancel}
@@ -310,6 +339,32 @@ const Dashboard = () => {
                             handleSOSTrigger();
                         }}
                     />
+                    {isSOSActive && (
+                        <button
+                            onClick={handleSOSCancel}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '1rem 2rem',
+                                backgroundColor: '#10b981', // Safe green
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '12px',
+                                fontSize: '1.1rem',
+                                fontWeight: '700',
+                                cursor: 'pointer',
+                                boxShadow: '0 4px 15px rgba(16, 185, 129, 0.3)',
+                                transition: 'all 0.2s',
+                                animation: 'slideUp 0.3s ease-out'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                            onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                        >
+                            <ShieldCheck size={24} />
+                            I Am Safe Now
+                        </button>
+                    )}
                 </div>
 
                 <section className="info-section">

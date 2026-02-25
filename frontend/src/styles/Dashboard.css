@@ -88,3 +88,25 @@
         align-items: center;
     }
 }
+
+/* Mobile Adjustments */
+@media (max-width: 767px) {
+    .dashboard {
+        padding: var(--spacing-sm);
+    }
+
+    .dashboard-content {
+        padding-top: var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+
+    .sos-container {
+        margin: var(--spacing-md) 0;
+        transform: scale(0.9);
+    }
+
+    .info-section,
+    .actions-section {
+        margin-bottom: var(--spacing-sm);
+    }
+}
