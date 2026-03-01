@@ -76,9 +76,24 @@ const GuardianDashboard = () => {
         verificationCode: ''
     });
 
-    const [availableUsers, setAvailableUsers] = useState([]);
-    const [selectedUserId, setSelectedUserId] = useState(null);
-    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    // Load cached data for instant render (avoids Render cold-start wait)
+    const cachedUsers = React.useMemo(() => {
+        try {
+            const cached = localStorage.getItem('guardian_cached_users');
+            return cached ? JSON.parse(cached) : [];
+        } catch { return []; }
+    }, []);
+
+    const cachedSelectedId = React.useMemo(() => {
+        try {
+            return localStorage.getItem('guardian_selected_user') || null;
+        } catch { return null; }
+    }, []);
+
+    const [availableUsers, setAvailableUsers] = useState(cachedUsers);
+    const [selectedUserId, setSelectedUserId] = useState(cachedSelectedId);
+    // Skip loading spinner if we have cached data
+    const [isLoadingUsers, setIsLoadingUsers] = useState(cachedUsers.length === 0);
 
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showSOSAlert, setShowSOSAlert] = useState(false);
@@ -117,20 +132,24 @@ const GuardianDashboard = () => {
             if (response.ok) {
                 const data = await response.json();
                 setAvailableUsers(data);
+
+                // Cache for instant load on next visit
+                try {
+                    localStorage.setItem('guardian_cached_users', JSON.stringify(data));
+                } catch { /* quota exceeded, ignore */ }
+
                 // If users exist and none selected, select first active one
                 if (data.length > 0 && !selectedUserId) {
                     const activeUser = data.find(u => u.status === 'active');
                     if (activeUser) {
                         setSelectedUserId(activeUser.userId);
+                        localStorage.setItem('guardian_selected_user', activeUser.userId);
                         setConnectionStatus('connected');
                         setUserStatus(prev => ({ ...prev, name: activeUser.name }));
                     } else if (data.length > 0) {
-                        // If we have users but none active, stay in initial but show we have options?
-                        // For now, let's just pick the first one and set status
                         const firstUser = data[0];
                         setSelectedUserId(firstUser.userId);
-                        // If inactive, we might not show dashboard yet?
-                        // Let's assume dashboard attempts to connect.
+                        localStorage.setItem('guardian_selected_user', firstUser.userId);
                         if (firstUser.status === 'active') setConnectionStatus('connected');
                     }
                 }
@@ -162,10 +181,16 @@ const GuardianDashboard = () => {
     };
 
     useEffect(() => {
-        const loadDashboard = async () => {
-            await fetchUsers();
-        };
-        loadDashboard();
+        // If we have cached data, set connection status immediately
+        if (cachedUsers.length > 0 && cachedSelectedId) {
+            const cachedUser = cachedUsers.find(u => u.userId === cachedSelectedId);
+            if (cachedUser) {
+                setConnectionStatus('connected');
+                setUserStatus(prev => ({ ...prev, name: cachedUser.name }));
+            }
+        }
+        // Always fetch fresh data in background
+        fetchUsers();
     }, []);
 
     // Effect to handle URL parameters for email tracking links
