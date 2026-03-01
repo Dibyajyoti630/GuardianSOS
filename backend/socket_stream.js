@@ -149,7 +149,10 @@ module.exports = (io) => {
                 const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
                 const userId = decoded.user.id;
 
-                const updateData = {};
+                // Associate socket with user (acts as heartbeat in case user-online was missed)
+                if (!socket.userId) socket.userId = userId;
+
+                const updateData = { isOnline: true }; // Heartbeat: always confirm online
                 if (battery !== undefined) updateData.batteryLevel = battery;
                 if (signal !== undefined) updateData.networkSignal = signal;
                 if (wifi !== undefined) updateData.wifiStatus = wifi;

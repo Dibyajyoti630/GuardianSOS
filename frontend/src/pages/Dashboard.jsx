@@ -170,10 +170,23 @@ const Dashboard = () => {
     // ----------------------------------------------------
     React.useEffect(() => {
         const token = localStorage.getItem('token');
-        if (token) {
-            // Emitting online status to backend immediately on mount
+
+        // Re-emit user-online on EVERY socket (re)connection
+        // This handles: initial connect, auto-reconnect after network drop, Render cold start
+        const handleConnect = () => {
+            if (token) {
+                socket.emit('user-online', { token });
+                console.log('[Dashboard] Socket connected/reconnected, emitted user-online');
+            }
+        };
+
+        // If already connected, emit immediately
+        if (socket.connected && token) {
             socket.emit('user-online', { token });
         }
+
+        // Listen for future (re)connections
+        socket.on('connect', handleConnect);
 
         const updateDeviceStats = async () => {
             if (!token) return;
@@ -185,7 +198,10 @@ const Dashboard = () => {
         // Emit initially and then every 10 seconds to keep dashboard fresh
         updateDeviceStats();
         const statsInterval = setInterval(updateDeviceStats, 10000);
-        return () => clearInterval(statsInterval);
+        return () => {
+            clearInterval(statsInterval);
+            socket.off('connect', handleConnect);
+        };
     }, []);
     // ----------------------------------------------------
 
