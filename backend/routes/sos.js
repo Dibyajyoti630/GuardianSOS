@@ -25,37 +25,46 @@ router.post('/trigger', auth, async (req, res) => {
             locationHistory: [location ? { lat: location.lat, lng: location.lng } : {}]
         });
 
-        await newSOS.save();
-
-        // 2. Update User Status
-        await User.findByIdAndUpdate(req.user.id, {
-            status: alertLevel,
-            lastKnownLocation: location,
-            batteryLevel: battery !== 'Unknown' ? battery : undefined,
-            networkSignal: network !== 'Unknown' ? network : undefined
-        });
-
-        // Log Activity
+        // Log Activity text
         const activityText = alertLevel === 'Warning'
             ? 'Triggered a Warning Alert'
             : 'Triggered an SOS Emergency Alert!';
 
-        await Activity.create({
-            userId: req.user.id,
-            type: 'status',
-            text: activityText
-        });
-
-        if (location && location.address) {
-            await Activity.create({
+        // 2. Run all critical DB writes in PARALLEL for speed
+        await Promise.all([
+            newSOS.save(),
+            User.findByIdAndUpdate(req.user.id, {
+                status: alertLevel,
+                lastKnownLocation: location,
+                batteryLevel: battery !== 'Unknown' ? battery : undefined,
+                networkSignal: network !== 'Unknown' ? network : undefined
+            }),
+            Activity.create({
                 userId: req.user.id,
-                type: 'location',
-                text: `Alert Location: ${location.address}`
-            });
-        }
+                type: 'status',
+                text: activityText
+            }),
+            (location && location.address)
+                ? Activity.create({
+                    userId: req.user.id,
+                    type: 'location',
+                    text: `Alert Location: ${location.address}`
+                })
+                : Promise.resolve()
+        ]);
 
         // 3. Respond to frontend IMMEDIATELY (don't wait for emails)
         res.json(newSOS);
+
+        // 3b. Emit real-time socket event for Guardian Dashboard
+        const ioInstance = req.app.get('io');
+        if (ioInstance) {
+            ioInstance.emit('sos-status-change', {
+                userId: req.user.id,
+                status: alertLevel,
+                location
+            });
+        }
 
         // 4. Notify Guardians & Emergency Contacts (fire-and-forget, after response)
         const connections = await Connection.find({
@@ -273,25 +282,29 @@ router.post('/cancel', auth, async (req, res) => {
         if (activeSOS) {
             activeSOS.isActive = false;
             activeSOS.endTime = Date.now();
-            await activeSOS.save();
         }
 
-        // Update User Status
-        await User.findByIdAndUpdate(req.user.id, {
-            status: 'Safe'
-        });
-
-        // Log Activity
-        await Activity.create({
-            userId: req.user.id,
-            type: 'status',
-            text: 'Marked as Safe. Alert cancelled.'
-        });
-
-        // Notify Guardians (Optional: "User is safe now")
-        // ... code to send "Safe" email ...
+        // Run all DB writes in parallel for speed
+        await Promise.all([
+            activeSOS ? activeSOS.save() : Promise.resolve(),
+            User.findByIdAndUpdate(req.user.id, { status: 'Safe' }),
+            Activity.create({
+                userId: req.user.id,
+                type: 'status',
+                text: 'Marked as Safe. Alert cancelled.'
+            })
+        ]);
 
         res.json({ msg: 'SOS Cancelled' });
+
+        // Emit real-time socket event for Guardian Dashboard
+        const ioInstance = req.app.get('io');
+        if (ioInstance) {
+            ioInstance.emit('sos-status-change', {
+                userId: req.user.id,
+                status: 'Safe'
+            });
+        }
 
     } catch (err) {
         console.error('Error cancelling SOS:', err);

@@ -5,6 +5,7 @@ import {
     CheckCircle, ShieldCheck, Users, LogOut, ChevronDown, List, RefreshCw
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import io from 'socket.io-client';
 import '../styles/GuardianDashboard.css';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -61,6 +62,12 @@ function MapUpdater({ center }) {
 
 const GuardianDashboard = () => {
     const navigate = useNavigate();
+    const socketRef = React.useRef(null);
+
+    // Initialize socket connection once
+    if (!socketRef.current) {
+        socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+    }
     // Connection State: 'initial', 'sending', 'sent', 'connected'
     const [connectionStatus, setConnectionStatus] = useState('initial');
     const [connectionData, setConnectionData] = useState({
@@ -261,6 +268,22 @@ const GuardianDashboard = () => {
         }
         setShowSOSAlert(false);
     };
+
+    // Listen for real-time SOS status changes via socket
+    useEffect(() => {
+        const socket = socketRef.current;
+        if (!socket) return;
+
+        const handleSOSChange = (data) => {
+            console.log('[Guardian] Real-time SOS status change:', data);
+            // Immediately refresh data when any user's SOS status changes
+            fetchUsers();
+            if (selectedUserId) fetchTimeline(selectedUserId, false);
+        };
+
+        socket.on('sos-status-change', handleSOSChange);
+        return () => socket.off('sos-status-change', handleSOSChange);
+    }, [selectedUserId]);
 
     // Poll for remote updates (Real-time tracking and fetching available users)
     useEffect(() => {

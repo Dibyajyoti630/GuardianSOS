@@ -29,6 +29,9 @@ mongoose.connect(db)
     .then(() => console.log('MongoDB Connected...'))
     .catch(err => console.log(err));
 
+// Store io on app so routes can emit events
+app.set('io', io);
+
 // Init Socket Stream
 require('./socket_stream')(io);
 

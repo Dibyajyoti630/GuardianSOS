@@ -220,7 +220,7 @@ const Dashboard = () => {
             const token = localStorage.getItem('token');
             let location = { lat: 0, lng: 0, address: 'Warning triggered' };
 
-            // Try to get real location for the warning too
+            // Try to get real location for the warning too (non-blocking)
             if (navigator.geolocation) {
                 try {
                     const pos = await new Promise((resolve, reject) => {
@@ -234,19 +234,33 @@ const Dashboard = () => {
 
             socket.emit('update-device-stats', { token });
 
-            const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-auth-token': token
-                },
-                body: JSON.stringify({ location, alertLevel: 'Warning' })
-            });
+            // Send with timeout + retry for reliability
+            const sendWarning = async (retries = 1) => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-auth-token': token
+                        },
+                        body: JSON.stringify({ location, alertLevel: 'Warning' }),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeout);
+                    if (!res.ok) throw new Error(`Warning trigger returned ${res.status}`);
+                } catch (err) {
+                    clearTimeout(timeout);
+                    if (retries > 0) {
+                        console.warn('Warning trigger failed, retrying...', err.message);
+                        return sendWarning(retries - 1);
+                    }
+                    throw err;
+                }
+            };
 
-            if (!res.ok) {
-                throw new Error(`Warning trigger returned ${res.status}`);
-            }
-
+            await sendWarning();
             console.log('Warning status sent to Guardians successfully.');
         } catch (err) {
             console.error('Warning trigger failed', err);
@@ -256,28 +270,25 @@ const Dashboard = () => {
 
     const handleSOSTrigger = async () => {
         startSiren();
-        let location = { lat: 0, lng: 0, address: 'Location Unavailable' };
 
-        // Helper to get position with timeout
-        const getPosition = () => {
-            return new Promise((resolve) => {
-                if (!navigator.geolocation) {
-                    resolve(null);
-                    return;
-                }
-                navigator.geolocation.getCurrentPosition(
-                    (pos) => resolve(pos),
-                    () => resolve(null),
-                    {
-                        timeout: 3000,
-                        enableHighAccuracy: true
-                    }
-                );
-            });
-        };
+        // Fetch geolocation + device stats in PARALLEL for speed
+        const getPositionPromise = new Promise((resolve) => {
+            if (!navigator.geolocation) { resolve(null); return; }
+            navigator.geolocation.getCurrentPosition(
+                (pos) => resolve(pos),
+                () => resolve(null),
+                { timeout: 3000, enableHighAccuracy: true }
+            );
+        });
 
         try {
-            const position = await getPosition();
+            const token = localStorage.getItem('token');
+            const [position, stats] = await Promise.all([
+                getPositionPromise,
+                getDeviceStats()
+            ]);
+
+            let location = { lat: 0, lng: 0, address: 'Location Unavailable' };
             if (position) {
                 location = {
                     lat: position.coords.latitude,
@@ -285,32 +296,41 @@ const Dashboard = () => {
                     address: 'Fetching address...'
                 };
             }
-        } catch (geoError) {
-            console.warn("SOS: Location fetch failed, sending SOS anyway.", geoError);
-        }
-
-        try {
-            const token = localStorage.getItem('token');
-            const stats = await getDeviceStats();
 
             console.log("Sending SOS with Location:", location, "Stats:", stats);
 
-            // 1. Trigger SOS API
-            const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-auth-token': token
-                },
-                body: JSON.stringify({
-                    location,
-                    alertLevel: 'SOS',
-                    battery: stats.battery || 'Unknown',
-                    network: stats.signal || 'Unknown'
-                })
-            });
+            // Send SOS with timeout + retry for maximum reliability
+            const sendSOS = async (retries = 1) => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/trigger', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'x-auth-token': token
+                        },
+                        body: JSON.stringify({
+                            location,
+                            alertLevel: 'SOS',
+                            battery: stats.battery || 'Unknown',
+                            network: stats.signal || 'Unknown'
+                        }),
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeout);
+                    if (!res.ok) throw new Error(`API Error ${res.status}`);
+                } catch (err) {
+                    clearTimeout(timeout);
+                    if (retries > 0) {
+                        console.warn('SOS trigger failed, retrying...', err.message);
+                        return sendSOS(retries - 1);
+                    }
+                    throw err;
+                }
+            };
 
-            if (!res.ok) throw new Error('API Error');
+            await sendSOS();
             console.log("SOS Triggered Successfully");
 
         } catch (err) {
