@@ -117,6 +117,12 @@ module.exports = (io) => {
                     await activeSOS.save();
                 }
 
+                // 3. Broadcast to Guardian Dashboards for real-time map updates
+                socket.broadcast.emit('user-location-update', {
+                    userId,
+                    location
+                });
+
                 console.log(`Loc update: User ${userId} -> ${location.lat},${location.lng} (SOS: ${!!activeSOS})`);
 
             } catch (err) {
@@ -158,6 +164,16 @@ module.exports = (io) => {
                 if (wifi !== undefined) updateData.wifiStatus = wifi;
 
                 await User.findByIdAndUpdate(userId, updateData);
+
+                // Broadcast to Guardian Dashboards for real-time stats updates
+                socket.broadcast.emit('user-stats-update', {
+                    userId,
+                    battery,
+                    signal,
+                    wifi,
+                    isOnline: true
+                });
+
                 console.log(`Updated stats for User ${userId}: Battery ${battery}%, Signal ${signal}, Wifi ${wifi}`);
             } catch (err) {
                 console.error('Device stats update error:', err.message);

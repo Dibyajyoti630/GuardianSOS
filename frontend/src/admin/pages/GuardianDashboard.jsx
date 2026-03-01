@@ -276,16 +276,55 @@ const GuardianDashboard = () => {
 
         const handleSOSChange = (data) => {
             console.log('[Guardian] Real-time SOS status change:', data);
-            // Immediately refresh data when any user's SOS status changes
+
+            // Immediately update local state without waiting for API
+            setAvailableUsers(prev => prev.map(u =>
+                u.userId === data.userId
+                    ? { ...u, userStatus: data.status, location: data.location || u.location }
+                    : u
+            ));
+
+            // Then refresh from server in background for full accuracy
             fetchUsers();
             if (selectedUserId) fetchTimeline(selectedUserId, false);
         };
 
         socket.on('sos-status-change', handleSOSChange);
-        return () => socket.off('sos-status-change', handleSOSChange);
+
+        // Listen for real-time location updates (instant map updates)
+        const handleLocationUpdate = (data) => {
+            setAvailableUsers(prev => prev.map(u =>
+                u.userId === data.userId
+                    ? { ...u, location: data.location }
+                    : u
+            ));
+        };
+        socket.on('user-location-update', handleLocationUpdate);
+
+        // Listen for real-time device stats updates (instant battery/signal/wifi)
+        const handleStatsUpdate = (data) => {
+            setAvailableUsers(prev => prev.map(u =>
+                u.userId === data.userId
+                    ? {
+                        ...u,
+                        battery: data.battery !== undefined ? data.battery : u.battery,
+                        networkSignal: data.signal !== undefined ? data.signal : u.networkSignal,
+                        wifiStatus: data.wifi !== undefined ? data.wifi : u.wifiStatus,
+                        isOnline: data.isOnline !== undefined ? data.isOnline : u.isOnline
+                    }
+                    : u
+            ));
+        };
+        socket.on('user-stats-update', handleStatsUpdate);
+
+        return () => {
+            socket.off('sos-status-change', handleSOSChange);
+            socket.off('user-location-update', handleLocationUpdate);
+            socket.off('user-stats-update', handleStatsUpdate);
+        };
     }, [selectedUserId]);
 
-    // Poll for remote updates (Real-time tracking and fetching available users)
+    // Poll for remote updates (fallback, less frequent since socket handles real-time)
     useEffect(() => {
         const interval = setInterval(() => {
             fetchUsers();
@@ -295,7 +334,7 @@ const GuardianDashboard = () => {
                 // Background poll, no loading spinner
                 fetchTimeline(selectedUserId, false);
             }
-        }, 3000); // Fetch every 3 seconds for smoother updates in demo
+        }, 5000); // 5s fallback poll (socket handles real-time updates)
 
         return () => clearInterval(interval);
     }, [connectionStatus, selectedUserId]);
