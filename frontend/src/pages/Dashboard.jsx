@@ -361,10 +361,31 @@ const Dashboard = () => {
 
         try {
             const token = localStorage.getItem('token');
-            await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/cancel', {
-                method: 'POST',
-                headers: { 'x-auth-token': token }
-            });
+
+            // Cancel with timeout + retry (same as trigger for reliability)
+            const sendCancel = async (retries = 1) => {
+                const controller = new AbortController();
+                const timeout = setTimeout(() => controller.abort(), 8000);
+                try {
+                    const res = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/sos/cancel', {
+                        method: 'POST',
+                        headers: { 'x-auth-token': token },
+                        signal: controller.signal
+                    });
+                    clearTimeout(timeout);
+                    if (!res.ok) throw new Error(`Cancel returned ${res.status}`);
+                } catch (err) {
+                    clearTimeout(timeout);
+                    if (retries > 0) {
+                        console.warn('SOS cancel failed, retrying...', err.message);
+                        return sendCancel(retries - 1);
+                    }
+                    throw err;
+                }
+            };
+
+            await sendCancel();
+            console.log('SOS Cancelled Successfully');
         } catch (err) {
             console.error("SOS Cancel Failed", err);
         }
