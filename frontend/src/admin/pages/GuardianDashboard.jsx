@@ -95,6 +95,12 @@ const GuardianDashboard = () => {
     // Skip loading spinner if we have cached data
     const [isLoadingUsers, setIsLoadingUsers] = useState(cachedUsers.length === 0);
 
+    // Ref to always access the latest selectedUserId (avoids stale closures)
+    const selectedUserIdRef = React.useRef(selectedUserId);
+    React.useEffect(() => {
+        selectedUserIdRef.current = selectedUserId;
+    }, [selectedUserId]);
+
     const [showUserMenu, setShowUserMenu] = useState(false);
     const [showSOSAlert, setShowSOSAlert] = useState(false);
     // Map of userId -> timestamp (when snooze expires)
@@ -138,17 +144,22 @@ const GuardianDashboard = () => {
                     localStorage.setItem('guardian_cached_users', JSON.stringify(data));
                 } catch { /* quota exceeded, ignore */ }
 
+                // Use ref to get the LATEST selectedUserId (not stale closure)
+                const currentSelectedId = selectedUserIdRef.current;
+
                 // If users exist and none selected, select first active one
-                if (data.length > 0 && !selectedUserId) {
+                if (data.length > 0 && !currentSelectedId) {
                     const activeUser = data.find(u => u.status === 'active');
                     if (activeUser) {
                         setSelectedUserId(activeUser.userId);
+                        selectedUserIdRef.current = activeUser.userId;
                         localStorage.setItem('guardian_selected_user', activeUser.userId);
                         setConnectionStatus('connected');
                         setUserStatus(prev => ({ ...prev, name: activeUser.name }));
                     } else if (data.length > 0) {
                         const firstUser = data[0];
                         setSelectedUserId(firstUser.userId);
+                        selectedUserIdRef.current = firstUser.userId;
                         localStorage.setItem('guardian_selected_user', firstUser.userId);
                         if (firstUser.status === 'active') setConnectionStatus('connected');
                     }
@@ -245,7 +256,7 @@ const GuardianDashboard = () => {
                     signal: (user.networkSignal !== 'Unknown' && user.networkSignal !== undefined) ? user.networkSignal : prev.signal,
                     wifi: (user.wifiStatus !== 'Unknown' && user.wifiStatus !== undefined) ? user.wifiStatus : prev.wifi,
                     isOnline: user.isOnline !== undefined ? user.isOnline : prev.isOnline,
-                    status: user.userStatus || prev.status || 'Safe' // Use userStatus from backend
+                    status: user.userStatus ? user.userStatus : (prev.status || 'Safe') // Use userStatus from backend
                 }));
 
                 // Check if user status is SOS
@@ -309,9 +320,12 @@ const GuardianDashboard = () => {
                     : u
             ));
 
-            // Then refresh from server in background for full accuracy
-            fetchUsers();
-            if (selectedUserId) fetchTimeline(selectedUserId, false);
+            // Delay background refresh to avoid overwriting the instant update with stale server data
+            setTimeout(() => {
+                fetchUsers();
+                const currentId = selectedUserIdRef.current;
+                if (currentId) fetchTimeline(currentId, false);
+            }, 2000);
         };
 
         socket.on('sos-status-change', handleSOSChange);

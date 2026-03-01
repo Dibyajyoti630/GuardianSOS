@@ -64,139 +64,133 @@ router.post('/trigger', auth, async (req, res) => {
                 status: alertLevel,
                 location
             });
-        }
-
-        // 4. Notify Guardians & Emergency Contacts (fire-and-forget, after response)
-        const connections = await Connection.find({
-            user: req.user.id,
-            status: 'active'
-        }).populate('guardian', 'email name phone');
-
-        const user = await User.findById(req.user.id);
-        const googleMapsLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : 'Unknown Location';
-
-        // Format Date to DD/MM/YYYY HH:mm:ss in IST
-        const now = new Date();
-        const formattedDate = now.toLocaleString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        }).toUpperCase();
-
-        let smsMessage = '';
-        let emailSubject = '';
-        if (alertLevel === 'Warning') {
-            emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
+            console.log(`[SOS] Socket event emitted: sos-status-change (${alertLevel}) for user ${req.user.id}`);
         } else {
-            emailSubject = `SOS ALERT: ${user.name} needs help!`;
+            console.error('[SOS] WARNING: io instance not available, socket event NOT emitted!');
         }
 
-        // Initialize Twilio
-        let client;
+        // 4. Notify Guardians & Emergency Contacts (fire-and-forget, wrapped in own try-catch)
+        // This runs AFTER response is sent, so errors here must NOT call res.status()
         try {
-            client = new twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
-        } catch (e) {
-            console.error("Twilio Init Failed", e);
-        }
+            const connections = await Connection.find({
+                user: req.user.id,
+                status: 'active'
+            }).populate('guardian', 'email name phone');
 
-        console.log(`[SOS] Sending notifications to ${connections.length} guardian(s) for alert level: ${alertLevel}`);
+            const user = await User.findById(req.user.id);
+            const googleMapsLink = location ? `https://www.google.com/maps?q=${location.lat},${location.lng}` : 'Unknown Location';
 
-        const emailPromises = connections.map(conn => {
-            if (!conn.guardian) return null;
+            // Format Date to DD/MM/YYYY HH:mm:ss in IST
+            const now = new Date();
+            const formattedDate = now.toLocaleString('en-IN', {
+                timeZone: 'Asia/Kolkata',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            }).toUpperCase();
 
-            const personalizedDashboardLink = process.env.FRONTEND_URL
-                ? `${process.env.FRONTEND_URL}/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`
-                : `https://guardiansos-frontend.onrender.com/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`;
-
+            let smsMessage = '';
+            let emailSubject = '';
             if (alertLevel === 'Warning') {
-                smsMessage = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.
-Time: ${formattedDate}
-Track Live: ${personalizedDashboardLink}`;
+                emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
             } else {
-                smsMessage = `URGENT SOS: ${user.name} needs help!
-Time: ${formattedDate}
-Location: ${googleMapsLink}
-Battery: ${battery}%
-Network: ${network}
-Track Live: ${personalizedDashboardLink}`;
+                emailSubject = `SOS ALERT: ${user.name} needs help!`;
             }
 
-            let emailHtml = '';
-            if (alertLevel === 'Warning') {
-                emailHtml = `
-                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
-                        <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
-                        <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
-                        <p><strong>Time:</strong> ${formattedDate}</p>
-                        <div style="margin-top: 20px;">
-                            <a href="${personalizedDashboardLink}" style="background-color: #eab308; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
-                        </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
-                    </div>
-                `;
-            } else {
-                emailHtml = `
-                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
-                        <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
-                        <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
-                        <p><strong>Time:</strong> ${formattedDate}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
-                        <p><strong>Battery:</strong> ${battery}%</p>
-                        <p><strong>Network:</strong> ${network}</p>
-                        <div style="margin-top: 20px;">
-                            <a href="${personalizedDashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
-                        </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
-                    </div>
-                `;
+            // Initialize Twilio
+            let client;
+            try {
+                client = new twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+            } catch (e) {
+                console.error("Twilio Init Failed", e);
             }
 
-            // Send SMS to Guardian if they have a phone number
-            if (conn.guardian.phone && client) {
-                client.messages.create({
-                    body: smsMessage,
-                    messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
-                    to: conn.guardian.phone
-                }).catch(err => console.error('Twilio Error (Guardian):', err.message));
-            }
+            console.log(`[SOS] Sending notifications to ${connections.length} guardian(s) for alert level: ${alertLevel}`);
 
-            const msg = {
-                to: conn.guardian.email,
-                from: 'guardiansosfromguardian.com@gmail.com', // Must be a verified sender in SendGrid
-                subject: emailSubject,
-                text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
-                html: emailHtml
-            };
-            console.log(`[SOS] Sending email to: ${conn.guardian.email}`);
-            return sgMail.send(msg).then(() => {
-                console.log(`[SOS] Email sent successfully to: ${conn.guardian.email}`);
-            }).catch(err => {
-                console.error(`[SOS] Email FAILED to: ${conn.guardian.email}`, err.message);
-                if (err.response) {
-                    console.error('[SOS] SendGrid Error body:', JSON.stringify(err.response.body));
+            const emailPromises = connections.map(conn => {
+                if (!conn.guardian) return null;
+
+                const personalizedDashboardLink = process.env.FRONTEND_URL
+                    ? `${process.env.FRONTEND_URL}/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`
+                    : `https://guardiansos-frontend.onrender.com/guardiansos/guardian/dashboard?target=${req.user.id}&auth=${encodeURIComponent(conn.guardian.email)}`;
+
+                if (alertLevel === 'Warning') {
+                    smsMessage = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.\nTime: ${formattedDate}\nTrack Live: ${personalizedDashboardLink}`;
+                } else {
+                    smsMessage = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsLink}\nBattery: ${battery}%\nNetwork: ${network}\nTrack Live: ${personalizedDashboardLink}`;
                 }
-            });
-        });
 
-        // 5. Notify Emergency Contacts (Non-App Users) via SMS (and Email if they have it)
-        if (client || sgMail) {
+                let emailHtml = '';
+                if (alertLevel === 'Warning') {
+                    emailHtml = `
+                        <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
+                            <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
+                            <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
+                            <p><strong>Time:</strong> ${formattedDate}</p>
+                            <div style="margin-top: 20px;">
+                                <a href="${personalizedDashboardLink}" style="background-color: #eab308; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
+                            </div>
+                             <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                        </div>
+                    `;
+                } else {
+                    emailHtml = `
+                        <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
+                            <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
+                            <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
+                            <p><strong>Time:</strong> ${formattedDate}</p>
+                            <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
+                            <p><strong>Battery:</strong> ${battery}%</p>
+                            <p><strong>Network:</strong> ${network}</p>
+                            <div style="margin-top: 20px;">
+                                <a href="${personalizedDashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
+                            </div>
+                             <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                        </div>
+                    `;
+                }
+
+                // Send SMS to Guardian if they have a phone number
+                if (conn.guardian.phone && client) {
+                    client.messages.create({
+                        body: smsMessage,
+                        messagingServiceSid: process.env.TWILIO_MESSAGING_SERVICE_SID,
+                        to: conn.guardian.phone
+                    }).catch(err => console.error('Twilio Error (Guardian):', err.message));
+                }
+
+                const msg = {
+                    to: conn.guardian.email,
+                    from: 'guardiansosfromguardian.com@gmail.com',
+                    subject: emailSubject,
+                    text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
+                    html: emailHtml
+                };
+                console.log(`[SOS] Sending email to: ${conn.guardian.email}`);
+                return sgMail.send(msg).then(() => {
+                    console.log(`[SOS] Email sent successfully to: ${conn.guardian.email}`);
+                }).catch(err => {
+                    console.error(`[SOS] Email FAILED to: ${conn.guardian.email}`, err.message);
+                    if (err.response) {
+                        console.error('[SOS] SendGrid Error body:', JSON.stringify(err.response.body));
+                    }
+                });
+            });
+
+            // 5. Notify Emergency Contacts
             const contacts = await EmergencyContact.find({ userId: req.user.id });
             contacts.forEach(contact => {
-
                 const generalLink = process.env.FRONTEND_URL ? `${process.env.FRONTEND_URL}` : `https://guardiansos-frontend.onrender.com`;
 
                 let contactSms = '';
                 let contactEmailHtml = '';
 
                 if (alertLevel === 'Warning') {
-                    contactSms = `WARNING: ${user.name} feels unsafe!
-Time: ${formattedDate}
-Check GuardianSOS App immediately!`;
+                    contactSms = `WARNING: ${user.name} feels unsafe!\nTime: ${formattedDate}\nCheck GuardianSOS App immediately!`;
                     contactEmailHtml = `
                     <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
                         <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
@@ -207,12 +201,7 @@ Check GuardianSOS App immediately!`;
                     </div>
                 `;
                 } else {
-                    contactSms = `URGENT SOS: ${user.name} needs help!
-Time: ${formattedDate}
-Location: ${googleMapsLink}
-Battery: ${battery}%
-Network: ${network}
-Check GuardianSOS app!`;
+                    contactSms = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsLink}\nBattery: ${battery}%\nNetwork: ${network}\nCheck GuardianSOS app!`;
                     contactEmailHtml = `
                     <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
                         <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
@@ -236,14 +225,13 @@ Check GuardianSOS app!`;
                 }
 
                 if (contact.email) {
-                    const msg = {
+                    emailPromises.push(sgMail.send({
                         to: contact.email,
                         from: 'guardiansosfromguardian.com@gmail.com',
                         subject: emailSubject,
                         text: contactSms,
                         html: contactEmailHtml
-                    };
-                    emailPromises.push(sgMail.send(msg).then(() => {
+                    }).then(() => {
                         console.log(`[SOS] Email sent to emergency contact: ${contact.email}`);
                     }).catch(err => {
                         console.error(`[SOS] Email FAILED to emergency contact: ${contact.email}`, err.message);
@@ -253,14 +241,19 @@ Check GuardianSOS app!`;
                     }));
                 }
             });
-        }
 
-        // Wait for all emails/SMS in background (doesn't block response)
-        Promise.all(emailPromises.filter(p => p !== null)).then(() => {
-            console.log('[SOS] All notifications processed.');
-        }).catch(err => {
-            console.error('[SOS] Some notifications failed:', err);
-        });
+            // Wait for all emails/SMS in background
+            Promise.all(emailPromises.filter(p => p !== null)).then(() => {
+                console.log('[SOS] All notifications processed.');
+            }).catch(err => {
+                console.error('[SOS] Some notifications failed:', err);
+            });
+
+        } catch (notifyErr) {
+            // This catch is for the fire-and-forget section ONLY
+            // Response is already sent, so we just log the error
+            console.error('[SOS] Notification section error (response already sent):', notifyErr);
+        }
 
     } catch (err) {
         console.error('Error triggering SOS:', err);
