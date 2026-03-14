@@ -8,7 +8,10 @@ import HistoryPreview from '../components/HistoryPreview'
 import { ShieldCheck } from 'lucide-react';
 import io from 'socket.io-client';
 
-const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '');
+// CHANGED: Pass JWT token at handshake level for socket auth middleware (was: unauthenticated connection)
+const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:5000'), {
+    auth: { token: localStorage.getItem('token') }
+});
 import '../styles/Dashboard.css'
 
 const Dashboard = () => {
@@ -65,8 +68,6 @@ const Dashboard = () => {
 
     const getDeviceStats = async () => {
         let battery = undefined;
-        let signal = 'Unknown';
-        let wifi = 'Unknown';
 
         // Gather Battery Info
         try {
@@ -78,32 +79,7 @@ const Dashboard = () => {
             console.warn("Battery API error:", err);
         }
 
-        // Gather Network/Wifi Info
-        try {
-            if (navigator.connection) {
-                const conn = navigator.connection;
-                if (conn.type === 'wifi') {
-                    wifi = 'Connected';
-                    signal = 'Strong';
-                } else if (conn.type === 'cellular') {
-                    wifi = 'Disconnected';
-                    signal = conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Cellular';
-                } else {
-                    wifi = conn.type === 'none' ? 'Disconnected' : 'Unknown';
-                    signal = conn.effectiveType ? conn.effectiveType.toUpperCase() : 'Unknown';
-                }
-            } else if (!navigator.onLine) {
-                wifi = 'Disconnected';
-                signal = 'None';
-            } else {
-                wifi = 'Unknown';
-                signal = 'Online';
-            }
-        } catch (err) {
-            console.warn("Network API error:", err);
-        }
-
-        return { battery, signal, wifi };
+        return { battery };
     };
 
     React.useEffect(() => {

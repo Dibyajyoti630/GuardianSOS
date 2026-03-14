@@ -12,7 +12,7 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 // @desc    Send invitation code
 // @access  Public
 router.post('/send', async (req, res) => {
-    const { email, name, type, inviterEmail } = req.body;
+    const { email, name, type, inviterEmail, phone } = req.body;
 
     if (!email || !name) {
         return res.status(400).json({ msg: 'Please provide all required fields' });
@@ -42,7 +42,8 @@ router.post('/send', async (req, res) => {
             email,
             code,
             type: type || 'general',
-            inviterEmail
+            inviterEmail,
+            phone: phone || ''
         });
 
         await newInvite.save();
@@ -111,6 +112,7 @@ router.post('/verify', auth, async (req, res) => {
                     connection = new Connection({
                         guardian: req.user.id,
                         user: targetUser._id,
+                        userPhone: invite.phone || '',
                         status: 'active'
                     });
                     await connection.save();

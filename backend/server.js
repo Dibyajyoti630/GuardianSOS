@@ -32,8 +32,8 @@ mongoose.connect(db)
 // Store io on app so routes can emit events
 app.set('io', io);
 
-// Init Socket Stream
-require('./socket_stream')(io);
+// Init Socket Stream — pass app so socket module can attach emitToGuardians helper for REST routes
+require('./socket_stream')(io, app);
 
 // Routes
 app.get('/', (req, res) => res.send('API RUNNING'));

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    MapPin, Battery, Signal, Wifi, Phone,
+    MapPin, Battery, Camera, Video, Phone,
     Shield, Clock, Navigation, AlertTriangle, UserPlus, Mail, ArrowRight,
     CheckCircle, ShieldCheck, Users, LogOut, ChevronDown, List, RefreshCw
 } from 'lucide-react';
@@ -64,15 +64,18 @@ const GuardianDashboard = () => {
     const navigate = useNavigate();
     const socketRef = React.useRef(null);
 
-    // Initialize socket connection once
+    // CHANGED: Pass JWT token at handshake level for socket auth middleware (was: unauthenticated connection)
     if (!socketRef.current) {
-        socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5000');
+        socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
+            auth: { token: localStorage.getItem('token') }
+        });
     }
     // Connection State: 'initial', 'sending', 'sent', 'connected'
     const [connectionStatus, setConnectionStatus] = useState('initial');
     const [connectionData, setConnectionData] = useState({
         userName: '',
         userEmail: '',
+        userPhone: '',
         verificationCode: ''
     });
 
@@ -111,8 +114,6 @@ const GuardianDashboard = () => {
         name: '...',
         status: 'Safe', // Safe, Warning, SOS
         battery: 'Unknown',
-        signal: 'Unknown',
-        wifi: 'Unknown',
         isOnline: false,
         lastUpdate: new Date(),
         location: {
@@ -253,8 +254,6 @@ const GuardianDashboard = () => {
                     } : prev.location,
                     // Dynamic Stats. Ensure we don't fall back to "Unknown" if we already had a real value locally.
                     battery: (user.battery !== 'Unknown' && user.battery !== undefined) ? user.battery : prev.battery,
-                    signal: (user.networkSignal !== 'Unknown' && user.networkSignal !== undefined) ? user.networkSignal : prev.signal,
-                    wifi: (user.wifiStatus !== 'Unknown' && user.wifiStatus !== undefined) ? user.wifiStatus : prev.wifi,
                     isOnline: user.isOnline !== undefined ? user.isOnline : prev.isOnline,
                     status: user.userStatus ? user.userStatus : (prev.status || 'Safe') // Use userStatus from backend
                 }));
@@ -347,8 +346,6 @@ const GuardianDashboard = () => {
                     ? {
                         ...u,
                         battery: data.battery !== undefined ? data.battery : u.battery,
-                        networkSignal: data.signal !== undefined ? data.signal : u.networkSignal,
-                        wifiStatus: data.wifi !== undefined ? data.wifi : u.wifiStatus,
                         isOnline: data.isOnline !== undefined ? data.isOnline : u.isOnline
                     }
                     : u
@@ -391,6 +388,7 @@ const GuardianDashboard = () => {
                 body: JSON.stringify({
                     email: connectionData.userEmail,
                     name: connectionData.userName,
+                    phone: connectionData.userPhone,
                     type: 'guardian_tracking'
                 })
             });
@@ -582,6 +580,20 @@ const GuardianDashboard = () => {
                                             onChange={(e) => setConnectionData({ ...connectionData, userEmail: e.target.value })}
                                         />
                                     </div>
+                                </div>
+                                <div className="form-group">
+                                    <label>User's Phone Number <span style={{ color: '#ef4444' }}>*</span></label>
+                                    <div className="input-with-icon">
+                                        <Phone size={20} />
+                                        <input
+                                            type="tel"
+                                            placeholder="+91 9876543210"
+                                            required
+                                            value={connectionData.userPhone}
+                                            onChange={(e) => setConnectionData({ ...connectionData, userPhone: e.target.value })}
+                                        />
+                                    </div>
+                                    <p style={{ fontSize: '0.8rem', color: '#9ca3af', marginTop: '4px' }}>Required for the Call feature on your dashboard.</p>
                                 </div>
                                 <button type="submit" className="connect-btn" disabled={connectionStatus === 'sending'}>
                                     {connectionStatus === 'sending' ? 'Sending Invite...' : 'Send Connection Request'}
@@ -776,18 +788,18 @@ const GuardianDashboard = () => {
                                     <span className="stat-label">Battery</span>
                                 </div>
                             </div>
-                            <div className="stat-card">
-                                <Signal size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
+                            <div className="stat-card" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                                <Camera size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.signal !== 'Unknown' ? userStatus.signal : '--'}</span>
-                                    <span className="stat-label">Network</span>
+                                    <span className="stat-value">--</span>
+                                    <span className="stat-label">Camera</span>
                                 </div>
                             </div>
-                            <div className="stat-card">
-                                <Wifi size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
+                            <div className="stat-card" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                                <Video size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
-                                    <span className="stat-value" style={{ fontSize: '13px' }}>{userStatus.wifi !== 'Unknown' ? userStatus.wifi : '--'}</span>
-                                    <span className="stat-label">WiFi</span>
+                                    <span className="stat-value">--</span>
+                                    <span className="stat-label">Footage</span>
                                 </div>
                             </div>
                         </div>
@@ -851,7 +863,18 @@ const GuardianDashboard = () => {
                             <AlertTriangle size={20} />
                             <span>Emergency SOS</span>
                         </button>
-                        <button className="action-button call">
+                        <button
+                            className="action-button call"
+                            onClick={() => {
+                                const currentUser = availableUsers.find(u => u.userId === selectedUserId);
+                                const phone = currentUser?.userPhone;
+                                if (phone) {
+                                    window.location.href = `tel:${phone}`;
+                                } else {
+                                    alert('No phone number available for this user. Please re-add them with a phone number.');
+                                }
+                            }}
+                        >
                             <Phone size={20} />
                             <span>Call {userStatus.name}</span>
                         </button>

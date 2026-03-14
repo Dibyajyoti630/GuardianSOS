@@ -11,6 +11,10 @@ const ConnectionSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
+    userPhone: {
+        type: String,
+        trim: true
+    },
     status: {
         type: String,
         enum: ['active', 'inactive'],

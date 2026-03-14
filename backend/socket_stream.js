@@ -4,31 +4,144 @@ const jwt = require('jsonwebtoken');
 const Evidence = require('./models/Evidence');
 const SOS = require('./models/SOS');
 const User = require('./models/User');
+const Connection = require('./models/Connection');
 
-module.exports = (io) => {
-    io.on('connection', (socket) => {
-        console.log('Client connected to stream/socket:', socket.id);
+// --- SCOPED EMIT INFRASTRUCTURE ---
+// Maps a guardian's userId to their socket ID (for targeted emits)
+const guardianSockets = new Map(); // guardianUserId -> socketId
+
+// Maps a tracked user's userId to the set of guardian userIds watching them
+const userGuardians = new Map(); // userId -> Set<guardianUserId>
+
+/**
+ * Emit a socket event ONLY to the guardians of a specific user.
+ * Replaces all previous io.emit() / socket.broadcast.emit() calls.
+ * Falls back silently if no guardians are connected (polling handles it).
+ */
+function emitToGuardians(io, userId, eventName, data) {
+    // DEBUG: Log map state to diagnose scoped emit issues
+    console.log(`[Scoped] emitToGuardians called for userId=${userId}, event='${eventName}'`);
+    console.log(`[Scoped] userGuardians map keys:`, [...userGuardians.keys()]);
+    console.log(`[Scoped] guardianSockets map:`, [...guardianSockets.entries()]);
+
+    const guardianIds = userGuardians.get(userId);
+    if (!guardianIds || guardianIds.size === 0) {
+        console.log(`[Scoped] No connected guardians for user ${userId}, event '${eventName}' not emitted via socket`);
+        return;
+    }
+
+    guardianIds.forEach(guardianId => {
+        const gSocketId = guardianSockets.get(guardianId);
+        if (gSocketId) {
+            io.to(gSocketId).emit(eventName, data);
+            console.log(`[Scoped] Emitted '${eventName}' to guardian ${guardianId} (socket: ${gSocketId})`);
+        } else {
+            console.log(`[Scoped] Guardian ${guardianId} is in userGuardians but has no socket in guardianSockets`);
+        }
+    });
+}
+
+/**
+ * Load all guardian relationships for a specific guardian from MongoDB.
+ * Populates the userGuardians map so their tracked users' events reach them.
+ */
+async function loadGuardianRelationships(guardianUserId) {
+    try {
+        // Query existing Connection model — guardian field matches this guardian
+        const connections = await Connection.find({
+            guardian: guardianUserId,
+            status: 'active'
+        });
+
+        connections.forEach(conn => {
+            const trackedUserId = conn.user.toString();
+            if (!userGuardians.has(trackedUserId)) {
+                userGuardians.set(trackedUserId, new Set());
+            }
+            userGuardians.get(trackedUserId).add(guardianUserId);
+            // DEBUG: Log each relationship loaded
+            console.log(`[Auth] Mapped: user ${trackedUserId} -> guardian ${guardianUserId}`);
+        });
+
+        console.log(`[Auth] Loaded ${connections.length} guardian relationships for guardian ${guardianUserId}`);
+        console.log(`[Auth] userGuardians map state:`, [...userGuardians.entries()].map(([k,v]) => `${k}: [${[...v].join(',')}]`));
+    } catch (err) {
+        console.error(`[Auth] Error loading guardian relationships:`, err.message);
+    }
+}
+
+/**
+ * Remove a guardian from all userGuardians mappings and from guardianSockets.
+ * Called on guardian disconnect.
+ */
+function removeGuardianMappings(guardianUserId) {
+    // Remove this guardian from every user's guardian set
+    userGuardians.forEach((guardianSet, userId) => {
+        guardianSet.delete(guardianUserId);
+        // Clean up empty sets
+        if (guardianSet.size === 0) {
+            userGuardians.delete(userId);
+        }
+    });
+
+    // Remove socket mapping
+    guardianSockets.delete(guardianUserId);
+    console.log(`[Auth] Cleaned up mappings for guardian ${guardianUserId}`);
+}
+
+module.exports = (io, app) => {
+    // --- STEP 1: JWT AUTH MIDDLEWARE ---
+    // Authenticate every socket connection at handshake level.
+    // Rejects unauthenticated clients before any event handler runs.
+    io.use((socket, next) => {
+        const token = socket.handshake.auth && socket.handshake.auth.token;
+        if (!token) {
+            console.error('[Auth] Socket connection rejected: no token provided');
+            return next(new Error('Unauthorized'));
+        }
+
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+            // Attach authenticated user info to socket for use in all event handlers
+            socket.user = {
+                userId: decoded.user.id,
+                role: decoded.user.role
+            };
+            next();
+        } catch (err) {
+            console.error('[Auth] Socket connection rejected: invalid token -', err.message);
+            return next(new Error('Unauthorized'));
+        }
+    });
+
+    // --- STEP 2 & 3: Expose emitToGuardians to the Express app (for routes/sos.js) ---
+    if (app) {
+        app.set('emitToGuardians', (userId, eventName, data) => {
+            emitToGuardians(io, userId, eventName, data);
+        });
+    }
+
+    io.on('connection', async (socket) => {
+        const { userId, role } = socket.user;
+        console.log(`Client connected: ${socket.id} (userId: ${userId}, role: ${role})`);
+
+        // --- GUARDIAN SOCKET REGISTRATION ---
+        // When a guardian connects, store their socket and load their user relationships
+        if (role === 'guardian') {
+            guardianSockets.set(userId, socket.id);
+            await loadGuardianRelationships(userId);
+            console.log(`[Auth] Guardian ${userId} registered with socket ${socket.id}`);
+        }
 
         // Map to keep track of write streams for this socket
         const activeStreams = new Map();
 
-        // Track which user this socket belongs to for online status
-        socket.userId = null;
-
         // -------------------------
         // MEDIA STREAMING LOGIC
         // -------------------------
-        socket.on('start-stream', ({ batchId, deviceId, type, token }) => {
-            let userId = null;
-            try {
-                if (!token) throw new Error('No token provided');
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-                userId = decoded.user.id;
-            } catch (err) {
-                console.error('Socket Auth Error:', err.message);
-                socket.emit('upload-error', { batchId, deviceId, msg: 'Auth Failed' });
-                return;
-            }
+        // CHANGED: Use socket.user.userId from handshake auth instead of per-event token verification
+        socket.on('start-stream', ({ batchId, deviceId, type }) => {
+            const streamUserId = socket.user.userId;
 
             const fileName = `${type}-${batchId}-${deviceId}-${Date.now()}.webm`;
             const uploadDir = path.join(__dirname, '../../uploads');
@@ -48,10 +161,10 @@ module.exports = (io) => {
                 filePath: filePath,
                 relativePath: relativePath,
                 startTime: Date.now(),
-                userId: userId // Store authenticated user ID
+                userId: streamUserId // Use authenticated user ID from handshake
             });
 
-            console.log(`Stream started: ${fileName} for User ${userId}`);
+            console.log(`Stream started: ${fileName} for User ${streamUserId}`);
         });
 
         socket.on('stream-data', ({ batchId, deviceId, data }) => {
@@ -95,19 +208,18 @@ module.exports = (io) => {
         // -------------------------
         // LIVE LOCATION LOGIC
         // -------------------------
-        socket.on('update-location', async ({ location, token }) => {
+        // CHANGED: Use socket.user.userId instead of per-event token. Emit scoped instead of broadcast.
+        socket.on('update-location', async ({ location }) => {
             try {
-                if (!token) return;
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-                const userId = decoded.user.id;
+                const locUserId = socket.user.userId;
 
                 // 1. Update User's last known location
-                await User.findByIdAndUpdate(userId, {
+                await User.findByIdAndUpdate(locUserId, {
                     lastKnownLocation: location
                 });
 
                 // 2. If SOS is active, append to SOS history
-                const activeSOS = await SOS.findOne({ user: userId, isActive: true });
+                const activeSOS = await SOS.findOne({ user: locUserId, isActive: true });
 
                 if (activeSOS) {
                     activeSOS.locationHistory.push({
@@ -117,13 +229,13 @@ module.exports = (io) => {
                     await activeSOS.save();
                 }
 
-                // 3. Broadcast to Guardian Dashboards for real-time map updates
-                socket.broadcast.emit('user-location-update', {
-                    userId,
+                // 3. CHANGED: Scoped emit to only this user's guardians (was: socket.broadcast.emit to ALL)
+                emitToGuardians(io, locUserId, 'user-location-update', {
+                    userId: locUserId,
                     location
                 });
 
-                console.log(`Loc update: User ${userId} -> ${location.lat},${location.lng} (SOS: ${!!activeSOS})`);
+                console.log(`Loc update: User ${locUserId} -> ${location.lat},${location.lng} (SOS: ${!!activeSOS})`);
 
             } catch (err) {
                 console.error('Loc update error:', err.message);
@@ -133,48 +245,36 @@ module.exports = (io) => {
         // -------------------------
         // DYNAMIC INTERACTION LOGIC
         // -------------------------
-        socket.on('user-online', async ({ token }) => {
-            console.log("RECEIVED user-online event", token ? "with token" : "without token");
+        // CHANGED: Use socket.user.userId from handshake auth. Token param kept for backward compat but ignored.
+        socket.on('user-online', async () => {
+            const onlineUserId = socket.user.userId;
+            console.log("RECEIVED user-online event for user", onlineUserId);
             try {
-                if (!token) return;
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-                const userId = decoded.user.id;
-                socket.userId = userId; // Associate socket with user
-
-                await User.findByIdAndUpdate(userId, { isOnline: true });
-                console.log(`User ${userId} came ONLINE via socket`);
+                await User.findByIdAndUpdate(onlineUserId, { isOnline: true });
+                console.log(`User ${onlineUserId} came ONLINE via socket`);
             } catch (err) {
                 console.error('User online error:', err.message);
             }
         });
 
-        socket.on('update-device-stats', async ({ battery, signal, wifi, token }) => {
-            console.log("RECEIVED update-device-stats event", { battery, signal, wifi, hasToken: !!token });
+        // CHANGED: Use socket.user.userId. Scoped emit instead of broadcast. Removed signal/wifi.
+        socket.on('update-device-stats', async ({ battery }) => {
+            const statsUserId = socket.user.userId;
+            console.log("RECEIVED update-device-stats event", { battery, userId: statsUserId });
             try {
-                if (!token) return;
-                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-                const userId = decoded.user.id;
-
-                // Associate socket with user (acts as heartbeat in case user-online was missed)
-                if (!socket.userId) socket.userId = userId;
-
                 const updateData = { isOnline: true }; // Heartbeat: always confirm online
                 if (battery !== undefined) updateData.batteryLevel = battery;
-                if (signal !== undefined) updateData.networkSignal = signal;
-                if (wifi !== undefined) updateData.wifiStatus = wifi;
 
-                await User.findByIdAndUpdate(userId, updateData);
+                await User.findByIdAndUpdate(statsUserId, updateData);
 
-                // Broadcast to Guardian Dashboards for real-time stats updates
-                socket.broadcast.emit('user-stats-update', {
-                    userId,
+                // CHANGED: Scoped emit to only this user's guardians (was: socket.broadcast.emit to ALL)
+                emitToGuardians(io, statsUserId, 'user-stats-update', {
+                    userId: statsUserId,
                     battery,
-                    signal,
-                    wifi,
                     isOnline: true
                 });
 
-                console.log(`Updated stats for User ${userId}: Battery ${battery}%, Signal ${signal}, Wifi ${wifi}`);
+                console.log(`Updated stats for User ${statsUserId}: Battery ${battery}%`);
             } catch (err) {
                 console.error('Device stats update error:', err.message);
             }
@@ -187,17 +287,26 @@ module.exports = (io) => {
             });
             activeStreams.clear();
 
-            // Mark user offline if they were authenticated
-            if (socket.userId) {
+            // CHANGED: Use socket.user.userId instead of socket.userId
+            const disconnectedUserId = socket.user.userId;
+            const disconnectedRole = socket.user.role;
+
+            // If guardian disconnected, clean up their socket and relationship mappings
+            if (disconnectedRole === 'guardian') {
+                removeGuardianMappings(disconnectedUserId);
+            }
+
+            // Mark user offline if they were a regular user
+            if (disconnectedRole === 'user') {
                 try {
-                    await User.findByIdAndUpdate(socket.userId, { isOnline: false });
-                    console.log(`User ${socket.userId} went OFFLINE`);
+                    await User.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
+                    console.log(`User ${disconnectedUserId} went OFFLINE`);
                 } catch (err) {
                     console.error('Offline update error:', err.message);
                 }
             }
 
-            console.log('Client disconnected from socket');
+            console.log(`Client disconnected: ${socket.id} (userId: ${disconnectedUserId}, role: ${disconnectedRole})`);
         });
     });
 };

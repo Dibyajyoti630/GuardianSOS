@@ -16,6 +16,10 @@ const InviteSchema = new mongoose.Schema({
     inviterEmail: {
         type: String
     },
+    phone: {
+        type: String,
+        trim: true
+    },
     createdAt: {
         type: Date,
         default: Date.now,

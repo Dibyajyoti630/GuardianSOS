@@ -155,7 +155,8 @@ router.get('/users', auth, async (req, res) => {
                 location: conn.user.lastKnownLocation || null,
                 isOnline: conn.user.isOnline,
                 networkSignal: conn.user.networkSignal || 'Unknown',
-                wifiStatus: conn.user.wifiStatus || 'Unknown'
+                wifiStatus: conn.user.wifiStatus || 'Unknown',
+                userPhone: conn.userPhone || ''
             };
         });
 

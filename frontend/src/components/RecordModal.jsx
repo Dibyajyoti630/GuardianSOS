@@ -21,8 +21,10 @@ const RecordModal = ({ isOpen, onClose }) => {
     const userRef = useRef(null);
 
     useEffect(() => {
-        // Init Socket
-        socketRef.current = io((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '');
+        // CHANGED: Pass JWT token at handshake level for socket auth middleware (was: unauthenticated connection)
+        socketRef.current = io((import.meta.env.VITE_API_URL || 'http://localhost:5000'), {
+            auth: { token: localStorage.getItem('token') }
+        });
 
         // Get user from local storage
         try {

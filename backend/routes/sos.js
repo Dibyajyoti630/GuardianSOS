@@ -56,17 +56,17 @@ router.post('/trigger', auth, async (req, res) => {
         // 3. Respond to frontend IMMEDIATELY (don't wait for emails)
         res.json(newSOS);
 
-        // 3b. Emit real-time socket event for Guardian Dashboard
-        const ioInstance = req.app.get('io');
-        if (ioInstance) {
-            ioInstance.emit('sos-status-change', {
+        // 3b. CHANGED: Scoped emit — only reaches this user's connected guardians (was: global broadcast)
+        const scopedEmit = req.app.get('emitToGuardians');
+        if (scopedEmit) {
+            scopedEmit(req.user.id, 'sos-status-change', {
                 userId: req.user.id,
                 status: alertLevel,
                 location
             });
-            console.log(`[SOS] Socket event emitted: sos-status-change (${alertLevel}) for user ${req.user.id}`);
+            console.log(`[SOS] Scoped socket event emitted: sos-status-change (${alertLevel}) for user ${req.user.id}`);
         } else {
-            console.error('[SOS] WARNING: io instance not available, socket event NOT emitted!');
+            console.error('[SOS] WARNING: emitToGuardians not available, socket event NOT emitted!');
         }
 
         // 4. Notify Guardians & Emergency Contacts (fire-and-forget, wrapped in own try-catch)
@@ -290,10 +290,10 @@ router.post('/cancel', auth, async (req, res) => {
 
         res.json({ msg: 'SOS Cancelled' });
 
-        // Emit real-time socket event for Guardian Dashboard
-        const ioInstance = req.app.get('io');
-        if (ioInstance) {
-            ioInstance.emit('sos-status-change', {
+        // CHANGED: Scoped emit — only reaches this user's connected guardians (was: global broadcast)
+        const scopedEmit = req.app.get('emitToGuardians');
+        if (scopedEmit) {
+            scopedEmit(req.user.id, 'sos-status-change', {
                 userId: req.user.id,
                 status: 'Safe'
             });
