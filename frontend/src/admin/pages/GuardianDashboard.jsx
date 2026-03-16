@@ -67,9 +67,24 @@ const GuardianDashboard = () => {
     // CHANGED: Pass JWT token at handshake level for socket auth middleware (was: unauthenticated connection)
     if (!socketRef.current) {
         socketRef.current = io(import.meta.env.VITE_API_URL || 'http://localhost:5000', {
-            auth: { token: localStorage.getItem('token') }
+            autoConnect: false
         });
     }
+
+    React.useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (token && socketRef.current) {
+            socketRef.current.auth = { token };
+            socketRef.current.connect();
+        }
+
+        return () => {
+            if (socketRef.current) {
+                socketRef.current.disconnect();
+            }
+        };
+    }, []);
+
     // Connection State: 'initial', 'sending', 'sent', 'connected'
     const [connectionStatus, setConnectionStatus] = useState('initial');
     const [connectionData, setConnectionData] = useState({

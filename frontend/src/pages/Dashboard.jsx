@@ -8,9 +8,8 @@ import HistoryPreview from '../components/HistoryPreview'
 import { ShieldCheck } from 'lucide-react';
 import io from 'socket.io-client';
 
-// CHANGED: Pass JWT token at handshake level for socket auth middleware (was: unauthenticated connection)
 const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:5000'), {
-    auth: { token: localStorage.getItem('token') }
+    autoConnect: false
 });
 import '../styles/Dashboard.css'
 
@@ -142,10 +141,13 @@ const Dashboard = () => {
     }, []);
 
     // ----------------------------------------------------
-    // DYNAMIC INTERACTION: Online Status & Device Stats
-    // ----------------------------------------------------
     React.useEffect(() => {
         const token = localStorage.getItem('token');
+
+        if (token) {
+            socket.auth = { token };
+            socket.connect();
+        }
 
         // Re-emit user-online on EVERY socket (re)connection
         // This handles: initial connect, auto-reconnect after network drop, Render cold start
@@ -177,6 +179,7 @@ const Dashboard = () => {
         return () => {
             clearInterval(statsInterval);
             socket.off('connect', handleConnect);
+            socket.disconnect();
         };
     }, []);
     // ----------------------------------------------------
