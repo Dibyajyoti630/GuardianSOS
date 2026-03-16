@@ -23,7 +23,7 @@ router.post('/send', async (req, res) => {
         // If Guardian invites User (guardian_tracking) -> Check User exists
         // If User invites Guardian (guardian_request) -> Check Guardian exists
         if (type === 'guardian_tracking' || type === 'guardian_request') {
-            const userExists = await User.findOne({ email });
+            const userExists = await User.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } });
             if (!userExists) {
                 return res.status(404).json({ msg: 'Account with this email does not exist' });
             }
@@ -86,7 +86,7 @@ router.post('/verify', auth, async (req, res) => {
     // req.user.id is the person verifying (The Guardian)
 
     try {
-        const invite = await Invite.findOne({ email, code });
+        const invite = await Invite.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }, code });
 
         if (!invite) {
             return res.status(400).json({ msg: 'Invalid or expired code' });
@@ -98,25 +98,27 @@ router.post('/verify', auth, async (req, res) => {
         // The 'email' in the invite is the User's email (target)
         // The person calling verify is the Guardian (req.user.id)
         if (invite.type === 'guardian_tracking') {
-            const targetUser = await User.findOne({ email: email }); // The user to be tracked
+            const targetUser = await User.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } });
 
-            if (targetUser) {
-                // Check if active connection already exists
-                let connection = await Connection.findOne({
+            if (!targetUser) {
+                return res.status(400).json({ msg: 'User account not found. They may need to sign up first.' });
+            }
+
+            // Check if active connection already exists
+            let connection = await Connection.findOne({
+                guardian: req.user.id,
+                user: targetUser._id,
+                status: 'active'
+            });
+
+            if (!connection) {
+                connection = new Connection({
                     guardian: req.user.id,
                     user: targetUser._id,
+                    userPhone: invite.phone || '',
                     status: 'active'
                 });
-
-                if (!connection) {
-                    connection = new Connection({
-                        guardian: req.user.id,
-                        user: targetUser._id,
-                        userPhone: invite.phone || '',
-                        status: 'active'
-                    });
-                    await connection.save();
-                }
+                await connection.save();
             }
         }
 
@@ -124,25 +126,27 @@ router.post('/verify', auth, async (req, res) => {
         // The 'email' in the invite is the Guardian's email (target)
         // The person calling verify is the User (req.user.id)
         if (invite.type === 'guardian_request') {
-            const targetGuardian = await User.findOne({ email: email }); // The guardian to connect
+            const targetGuardian = await User.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } });
 
-            if (targetGuardian) {
-                // Check if active connection already exists
-                let connection = await Connection.findOne({
+            if (!targetGuardian) {
+                return res.status(400).json({ msg: 'Guardian account not found. They may need to sign up first.' });
+            }
+
+            // Check if active connection already exists
+            let connection = await Connection.findOne({
+                guardian: targetGuardian._id,
+                user: req.user.id,
+                status: 'active'
+            });
+
+            if (!connection) {
+                connection = new Connection({
                     guardian: targetGuardian._id,
                     user: req.user.id,
+                    userPhone: invite.phone || '',
                     status: 'active'
                 });
-
-                if (!connection) {
-                    connection = new Connection({
-                        guardian: targetGuardian._id,
-                        user: req.user.id,
-                        userPhone: invite.phone || '',
-                        status: 'active'
-                    });
-                    await connection.save();
-                }
+                await connection.save();
             }
         }
 

@@ -148,8 +148,33 @@ const GuardianDashboard = () => {
                 // Use ref to get the LATEST selectedUserId (not stale closure)
                 const currentSelectedId = selectedUserIdRef.current;
 
+                // Validate that the currently selected user exists in fresh server data
+                if (currentSelectedId) {
+                    const selectedExists = data.find(u => u.userId === currentSelectedId);
+                    if (!selectedExists) {
+                        // Cached user is stale (wrong guardian account, deleted connection, etc.)
+                        console.log('[Guardian] Cached selectedUserId not found in server data, clearing stale cache');
+                        localStorage.removeItem('guardian_selected_user');
+                        
+                        if (data.length > 0) {
+                            // Switch to first available user
+                            const activeUser = data.find(u => u.status === 'active') || data[0];
+                            setSelectedUserId(activeUser.userId);
+                            selectedUserIdRef.current = activeUser.userId;
+                            localStorage.setItem('guardian_selected_user', activeUser.userId);
+                            if (activeUser.status === 'active') setConnectionStatus('connected');
+                            setUserStatus(prev => ({ ...prev, name: activeUser.name }));
+                        } else {
+                            // No users at all — reset to invite flow
+                            setSelectedUserId(null);
+                            selectedUserIdRef.current = null;
+                            setConnectionStatus('initial');
+                        }
+                    }
+                }
+
                 // If users exist and none selected, select first active one
-                if (data.length > 0 && !currentSelectedId) {
+                if (data.length > 0 && !selectedUserIdRef.current) {
                     const activeUser = data.find(u => u.status === 'active');
                     if (activeUser) {
                         setSelectedUserId(activeUser.userId);
@@ -186,7 +211,10 @@ const GuardianDashboard = () => {
                 setTimeline(data);
             }
         } catch (error) {
-            console.error('Error fetching timeline:', error);
+            // Don't log expected 403 errors (no connection yet)
+            if (error.name !== 'TypeError') {
+                console.error('Error fetching timeline:', error);
+            }
         } finally {
             if (isInitialLoad) setLoadingTimeline(false);
         }
@@ -389,7 +417,8 @@ const GuardianDashboard = () => {
                     email: connectionData.userEmail,
                     name: connectionData.userName,
                     phone: connectionData.userPhone,
-                    type: 'guardian_tracking'
+                    type: 'guardian_tracking',
+                    inviterEmail: JSON.parse(localStorage.getItem('user') || '{}').email || ''
                 })
             });
 

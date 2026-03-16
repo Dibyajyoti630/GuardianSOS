@@ -173,12 +173,18 @@ router.get('/users', auth, async (req, res) => {
 router.get('/users/:userId/activity', auth, async (req, res) => {
     try {
         // First verify this guardian is actually connected to this user
+        console.log(`[Activity] Guardian ${req.user.id} requesting activity for user ${req.params.userId}`);
         const connection = await Connection.findOne({
             guardian: req.user.id,
             user: req.params.userId
         });
 
+        console.log(`[Activity] Connection found:`, connection ? `YES (status: ${connection.status})` : 'NO');
+
         if (!connection) {
+            // Also check ALL connections for this guardian to debug
+            const allConns = await Connection.find({ guardian: req.user.id });
+            console.log(`[Activity] All connections for this guardian:`, allConns.map(c => ({ user: c.user.toString(), status: c.status })));
             return res.status(403).json({ msg: 'Not authorized to view this user\'s activity' });
         }
 
