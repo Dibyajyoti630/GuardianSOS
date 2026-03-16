@@ -3,7 +3,20 @@
     justify-content: space-between;
     align-items: center;
     width: 100%;
-    padding-bottom: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 16px;
+    margin-bottom: var(--spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .dashboard-header {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 .profile-section {
@@ -52,19 +65,38 @@
 }
 
 .icon-btn {
-    background: transparent;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     color: var(--color-text-main);
-    padding: 8px;
-    border-radius: 50%;
-    transition: background 0.2s;
+    padding: 0.6rem;
+    border-radius: 12px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .icon-btn:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Light theme overrides */
+[data-theme="light"] .icon-btn {
+    background: rgba(0, 0, 0, 0.03);
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="light"] .icon-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+    border-color: rgba(0, 0, 0, 0.12);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .settings-container {
@@ -367,6 +399,11 @@
 
 /* Responsive */
 @media (max-width: 768px) {
+    .dashboard-header {
+        padding: var(--spacing-sm) var(--spacing-md);
+        border-radius: 12px;
+    }
+
     .help-modal {
         max-width: 95%;
         max-height: 90vh;
@@ -388,5 +425,10 @@
     .help-icon {
         width: 40px;
         height: 40px;
+    }
+
+    .settings-dropdown {
+        right: -10px;
+        width: 200px;
     }
 }
