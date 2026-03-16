@@ -120,6 +120,32 @@ router.post('/verify', auth, async (req, res) => {
             }
         }
 
+        // If this was a guardian_request invite, create a connection
+        // The 'email' in the invite is the Guardian's email (target)
+        // The person calling verify is the User (req.user.id)
+        if (invite.type === 'guardian_request') {
+            const targetGuardian = await User.findOne({ email: email }); // The guardian to connect
+
+            if (targetGuardian) {
+                // Check if active connection already exists
+                let connection = await Connection.findOne({
+                    guardian: targetGuardian._id,
+                    user: req.user.id,
+                    status: 'active'
+                });
+
+                if (!connection) {
+                    connection = new Connection({
+                        guardian: targetGuardian._id,
+                        user: req.user.id,
+                        userPhone: invite.phone || '',
+                        status: 'active'
+                    });
+                    await connection.save();
+                }
+            }
+        }
+
         await Invite.deleteOne({ _id: invite._id });
 
         res.json({ msg: 'Verified and Connected successfully', invite });
