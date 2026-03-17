@@ -59,11 +59,24 @@ const userSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isUnreachable: { 
+        type: Boolean, 
+        default: false 
+    },
+    unreachableSince: { 
+        type: Date, 
+        default: null 
+    },
     networkSignal: {
         type: String // e.g. "4G", "LTE", "5G", "Strong", "Weak"
     },
     wifiStatus: {
         type: String // e.g. "Connected", "Disconnected"
+    },
+    disconnectType: {
+        type: String,
+        enum: ['voluntary', 'duress', 'suspicious', null],
+        default: null
     }
 });
 

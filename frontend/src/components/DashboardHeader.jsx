@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { User, Settings, HelpCircle, LogOut, X, Shield, MapPin, Navigation, Clock, Zap, Phone, AlertCircle, RefreshCw, Moon, Sun, UserPlus, Users } from 'lucide-react';
+import { User, Settings, HelpCircle, LogOut, X, Shield, MapPin, Navigation, Clock, Zap, Phone, AlertCircle, RefreshCw, Moon, Sun, UserPlus, Users, Power } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import FakeCallSettings from './FakeCallSettings';
 import AddGuardianModal from './AddGuardianModal';
 import ManageGuardiansModal from './ManageGuardiansModal';
 import '../styles/DashboardHeader.css';
 
-const DashboardHeader = ({ user }) => {
+const DashboardHeader = ({ user, socket }) => {
     const navigate = useNavigate();
     const [showSettings, setShowSettings] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
@@ -14,6 +14,11 @@ const DashboardHeader = ({ user }) => {
     const [showAddGuardian, setShowAddGuardian] = useState(false);
     const [showManageGuardians, setShowManageGuardians] = useState(false);
     const [activeGuardians, setActiveGuardians] = useState([]);
+    
+    // Disconnect state
+    const holdTimer = React.useRef(null);
+    const progressInterval = React.useRef(null);
+    const [holdProgress, setHoldProgress] = useState(0);
 
     // Theme state - get from localStorage or default to 'dark'
     const [theme, setTheme] = useState(() => {
@@ -66,6 +71,79 @@ const DashboardHeader = ({ user }) => {
     const handleLogout = () => {
         localStorage.removeItem('user');
         navigate('/guardiansos/user/login');
+    };
+
+    const handleVoluntaryOffline = () => {
+        const userId = user?._id || user?.id || user?.userId;
+        if (socket && socket.connected) {
+            let disconnected = false;
+            
+            const doDisconnect = () => {
+                if (disconnected) return; // prevent double firing
+                disconnected = true;
+                socket.disconnect();
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+                alert('You are now offline.');
+                navigate('/guardiansos/user/login');
+            };
+            
+            socket.emit('voluntary-offline', { userId });
+            socket.once('voluntary-offline-ack', doDisconnect);
+            setTimeout(doDisconnect, 3000); // fallback
+        } else {
+            handleLogout();
+        }
+    };
+
+    const handleDuressOffline = () => {
+        const userId = user?._id || user?.id || user?.userId;
+        if (socket && socket.connected) {
+            socket.emit('duress-offline', { userId });
+            setTimeout(() => {
+                socket.disconnect();
+                localStorage.removeItem('user');
+                localStorage.removeItem('token');
+                navigate('/guardiansos/user/login');
+            }, 500);
+        } else {
+            handleLogout();
+        }
+    };
+
+    const handlePointerDown = (e) => {
+        // Only trigger on left click
+        if (e && e.button !== 0 && e.type === 'pointerdown') return;
+        
+        // Start progress bar
+        progressInterval.current = setInterval(() => {
+            setHoldProgress(prev => prev + (100 / 30)); // 30 intervals over 3s
+        }, 100);
+        
+        // Start 3s timer for duress
+        holdTimer.current = setTimeout(() => {
+            clearInterval(progressInterval.current);
+            handleDuressOffline(); // only fires if hold completes
+        }, 3000);
+    };
+
+    const handlePointerUp = () => {
+        // If released before 3s - treat as voluntary single tap
+        if (holdTimer.current) {
+            clearTimeout(holdTimer.current);
+            holdTimer.current = null;
+            clearInterval(progressInterval.current);
+            setHoldProgress(0);
+            handleVoluntaryOffline(); // single tap action fires here
+        }
+    };
+
+    const handlePointerLeave = () => {
+        // Cancel everything if pointer leaves button
+        clearTimeout(holdTimer.current);
+        clearInterval(progressInterval.current);
+        setHoldProgress(0);
+        holdTimer.current = null;
     };
 
     return (
@@ -138,6 +216,39 @@ const DashboardHeader = ({ user }) => {
                                     {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
                                     <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                                 </button>
+                                
+                                <div className="offline-btn-container" style={{ position: 'relative' }}>
+                                    <button 
+                                        className="settings-item offline-btn" 
+                                        style={{ 
+                                            borderTop: '1px solid var(--color-border)', 
+                                            marginTop: '4px',
+                                            paddingTop: '10px',
+                                            overflow: 'hidden',
+                                            position: 'relative'
+                                        }}
+                                        onPointerDown={handlePointerDown}
+                                        onPointerUp={handlePointerUp}
+                                        onPointerLeave={handlePointerLeave}
+                                        onContextMenu={(e) => e.preventDefault()}
+                                    >
+                                        <div 
+                                            className="hold-progress-fill" 
+                                            style={{
+                                                position: 'absolute',
+                                                left: 0,
+                                                bottom: 0,
+                                                height: '100%',
+                                                width: `${holdProgress}%`,
+                                                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                                                transition: 'width 0.05s linear',
+                                                zIndex: 0
+                                            }}
+                                        />
+                                        <Power size={16} style={{ position: 'relative', zIndex: 1 }} />
+                                        <span style={{ position: 'relative', zIndex: 1 }}>Going Offline</span>
+                                    </button>
+                                </div>
                                 <button className="settings-item" onClick={handleLogout}>
                                     <LogOut size={16} />
                                     <span>Logout</span>

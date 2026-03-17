@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
 import '../styles/GuardianDashboard.css';
 import 'leaflet/dist/leaflet.css';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 
 // Fix for default marker icon in Leaflet with Webpack/Vite
@@ -45,6 +45,26 @@ const SOSAlertOverlay = ({ user, location, onDismiss }) => (
                 </a>
                 <button className="sos-action-btn dismiss-btn" onClick={onDismiss}>
                     Acknowledge Alert
+                </button>
+            </div>
+        </div>
+    </div>
+);
+
+// Unreachable Alert Overlay Component
+const UnreachableAlertOverlay = ({ user, location, lastSeen, onDismiss }) => (
+    <div className="unreachable-alert-overlay">
+        <div className="unreachable-banner">
+            <div className="alert-content">
+                <AlertTriangle size={32} />
+                <div>
+                    <h1>⚠️ UNREACHABLE: {user} disconnected unexpectedly</h1>
+                    <p>They did not go offline normally. Last seen at {lastSeen ? new Date(lastSeen).toLocaleTimeString() : 'Unknown'}.</p>
+                </div>
+            </div>
+            <div className="unreachable-actions">
+                <button className="unreachable-dismiss" onClick={onDismiss}>
+                    Dismiss Alert
                 </button>
             </div>
         </div>
@@ -123,6 +143,9 @@ const GuardianDashboard = () => {
     const [showSOSAlert, setShowSOSAlert] = useState(false);
     // Map of userId -> timestamp (when snooze expires)
     const [snoozeMap, setSnoozeMap] = useState({});
+    
+    // Track Unreachable users safely
+    const [unreachableUsers, setUnreachableUsers] = useState({});
 
     // Simulated user state (fallback)
     const [userStatus, setUserStatus] = useState({
@@ -298,7 +321,9 @@ const GuardianDashboard = () => {
                     // Dynamic Stats. Ensure we don't fall back to "Unknown" if we already had a real value locally.
                     battery: (user.battery !== 'Unknown' && user.battery !== undefined) ? user.battery : prev.battery,
                     isOnline: user.isOnline !== undefined ? user.isOnline : prev.isOnline,
-                    status: user.userStatus ? user.userStatus : (prev.status || 'Safe') // Use userStatus from backend
+                    status: user.userStatus ? user.userStatus : (prev.status || 'Safe'), // Use userStatus from backend
+                    isUnreachable: user.isUnreachable || false,
+                    unreachableSince: user.unreachableSince || null
                 }));
 
                 // Check if user status is SOS
@@ -396,10 +421,25 @@ const GuardianDashboard = () => {
         };
         socket.on('user-stats-update', handleStatsUpdate);
 
+        // Listen for new user-unreachable event
+        const handleUnreachable = (data) => {
+            console.log(`[Guardian] Real-time UNREACHABLE status change:`, data);
+            
+            setUnreachableUsers(prev => ({
+                ...prev,
+                [data.userId]: {
+                    lastKnownLocation: data.lastKnownLocation,
+                    lastSeen: data.lastSeen
+                }
+            }));
+        };
+        socket.on('user-unreachable', handleUnreachable);
+
         return () => {
             socket.off('sos-status-change', handleSOSChange);
             socket.off('user-location-update', handleLocationUpdate);
             socket.off('user-stats-update', handleStatsUpdate);
+            socket.off('user-unreachable', handleUnreachable);
         };
     }, [selectedUserId]);
 
@@ -773,9 +813,40 @@ const GuardianDashboard = () => {
                                 <Marker position={[userStatus.location.lat, userStatus.location.lng]}>
                                     <Popup>
                                         {userStatus.name}<br />
-                                        {userStatus.location.address}
+                                        {unreachableUsers[selectedUserId] || userStatus.isUnreachable
+                                            ? `Last known location - ${formatTime(unreachableUsers[selectedUserId]?.lastSeen || userStatus.unreachableSince)}`
+                                            : userStatus.location.address}
                                     </Popup>
                                 </Marker>
+                                
+                                {userStatus.status === 'SOS' && (
+                                    <Circle 
+                                        center={[userStatus.location.lat, userStatus.location.lng]}
+                                        radius={150}
+                                        pathOptions={{ 
+                                            color: '#ef4444', 
+                                            fillColor: '#ef4444',
+                                            fillOpacity: 0.2,
+                                            weight: 2
+                                        }}
+                                        className="pulse-red"
+                                    />
+                                )}
+                                
+                                {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) && (
+                                    <Circle 
+                                        center={[userStatus.location.lat, userStatus.location.lng]}
+                                        radius={150}
+                                        pathOptions={{ 
+                                            color: '#f59e0b', 
+                                            fillColor: '#f59e0b',
+                                            fillOpacity: 0.2,
+                                            weight: 2
+                                        }}
+                                        className="pulse-orange"
+                                    />
+                                )}
+
                                 <MapUpdater center={[userStatus.location.lat, userStatus.location.lng]} />
                             </MapContainer>
 
@@ -808,19 +879,23 @@ const GuardianDashboard = () => {
 
                 <div className="info-panel">
                     <div className="status-overview">
-                        <div className={`status-card ${!userStatus.isOnline ? 'offline' : getStatusColor(userStatus.status)}`}>
+                        <div className={`status-card ${(unreachableUsers[selectedUserId] || userStatus.isUnreachable) ? 'warning unreachable' : (!userStatus.isOnline ? 'offline' : getStatusColor(userStatus.status))}`}>
                             <div className="status-header">
                                 <Shield size={24} />
                                 <h3>Current Status</h3>
                             </div>
                             <p className="status-value">
-                                {!userStatus.isOnline ? 'Offline' : userStatus.status}
+                                {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) ? '⚠️ Unreachable' : (!userStatus.isOnline ? 'Offline' : userStatus.status)}
                             </p>
                             <span className="status-desc">
-                                {!userStatus.isOnline ? 'User is currently offline' :
+                                {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) ? `Contact lost • ${
+                                    unreachableUsers[selectedUserId]?.lastSeen ? new Date(unreachableUsers[selectedUserId].lastSeen).toLocaleTimeString() : 
+                                    userStatus.unreachableSince ? new Date(userStatus.unreachableSince).toLocaleTimeString() : 'Unknown'
+                                }` : 
+                                (!userStatus.isOnline ? 'User is currently offline' :
                                     userStatus.status === 'SOS' ? 'Emergency Alert Active!' :
                                         userStatus.status === 'Warning' ? 'User feels unsafe (Warning)' :
-                                            'Everything looks good'}
+                                            'Everything looks good')}
                             </span>
                         </div>
 
@@ -933,6 +1008,54 @@ const GuardianDashboard = () => {
                         location={userStatus.location}
                         onDismiss={handleAcknowledge}
                     />
+                )
+            }
+            {
+                Object.keys(unreachableUsers).length > 0 && (
+                    <>
+                        {Object.entries(unreachableUsers).map(([uid, data]) => {
+                            const u = availableUsers.find(au => au.userId === uid);
+                            if (!u) return null;
+                            return (
+                                <UnreachableAlertOverlay
+                                    key={`unreachable-${uid}`}
+                                    user={u.name}
+                                    location={data.lastKnownLocation}
+                                    lastSeen={data.lastSeen}
+                                    onDismiss={() => {
+                                        setUnreachableUsers(prev => {
+                                            const newObj = { ...prev };
+                                            delete newObj[uid];
+                                            return newObj;
+                                        });
+                                    }}
+                                />
+                            );
+                        })}
+                    </>
+                )
+            }
+            {
+                // Fallback for DB-persisted unreachable state on reload
+                Object.keys(unreachableUsers).length === 0 && availableUsers.some(u => u.isUnreachable) && (
+                    <>
+                        {availableUsers.filter(u => u.isUnreachable).map(u => (
+                            <UnreachableAlertOverlay
+                                key={`unreachable-db-${u.userId}`}
+                                user={u.name}
+                                location={u.location}
+                                lastSeen={u.unreachableSince}
+                                onDismiss={() => {
+                                    // Just silence it locally, as real update happens when they go online
+                                    // Hacky temporary fix to avoid writing another DB route to dismiss
+                                    setUnreachableUsers(prev => ({
+                                        ...prev,
+                                        [u.userId]: false // use false as a dismissed flag
+                                    }));
+                                }}
+                            />
+                        ))}
+                    </>
                 )
             }
         </div >

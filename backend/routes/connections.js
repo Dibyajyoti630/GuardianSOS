@@ -141,7 +141,7 @@ router.get('/users', auth, async (req, res) => {
     try {
         const connections = await Connection.find({
             guardian: req.user.id
-        }).populate('user', 'name email profilePicture emergencyContact batteryLevel lastKnownLocation status isOnline networkSignal wifiStatus');
+        }).populate('user', 'name email profilePicture emergencyContact batteryLevel lastKnownLocation status isOnline networkSignal wifiStatus isUnreachable unreachableSince');
 
         const userList = connections.map(conn => {
             return {
@@ -154,11 +154,20 @@ router.get('/users', auth, async (req, res) => {
                 battery: conn.user.batteryLevel !== undefined && conn.user.batteryLevel !== null ? conn.user.batteryLevel : 'Unknown',
                 location: conn.user.lastKnownLocation || null,
                 isOnline: conn.user.isOnline,
+                isUnreachable: conn.user.isUnreachable || false,
+                unreachableSince: conn.user.unreachableSince || null,
                 networkSignal: conn.user.networkSignal || 'Unknown',
                 wifiStatus: conn.user.wifiStatus || 'Unknown',
                 userPhone: conn.userPhone || ''
             };
         });
+
+        if (userList.length > 0) {
+            console.log('[fetchUsers] sample user fields:', {
+                isOnline: userList[0].isOnline,
+                isUnreachable: userList[0].isUnreachable
+            });
+        }
 
         res.json(userList);
     } catch (err) {

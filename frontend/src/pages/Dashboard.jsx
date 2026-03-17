@@ -372,7 +372,7 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard">
-            <DashboardHeader user={user} />
+            <DashboardHeader user={user} socket={socket} />
 
             <main className="dashboard-content">
                 <StatusIndicator isActive={isSOSActive} trackingInfo={trackingInfo} />

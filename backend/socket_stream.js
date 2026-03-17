@@ -5,6 +5,13 @@ const Evidence = require('./models/Evidence');
 const SOS = require('./models/SOS');
 const User = require('./models/User');
 const Connection = require('./models/Connection');
+const { notifyGuardians } = require('./utils/notifyGuardians');
+
+// --- VOLUNTARY DISCONNECT TRACKING ---
+const voluntaryDisconnects = new Set(); // Stores socketIds of intentional disconnects
+const reconnectGraceTimers = new Map(); // userId -> timerId
+const userSockets = new Map(); // userId -> socketId
+const suspiciousTimers = new Map(); // userId -> timeoutId
 
 // --- SCOPED EMIT INFRASTRUCTURE ---
 // Maps a guardian's userId to their socket ID (for targeted emits)
@@ -64,7 +71,7 @@ async function loadGuardianRelationships(guardianUserId) {
         });
 
         console.log(`[Auth] Loaded ${connections.length} guardian relationships for guardian ${guardianUserId}`);
-        console.log(`[Auth] userGuardians map state:`, [...userGuardians.entries()].map(([k,v]) => `${k}: [${[...v].join(',')}]`));
+        console.log(`[Auth] userGuardians map state:`, [...userGuardians.entries()].map(([k, v]) => `${k}: [${[...v].join(',')}]`));
     } catch (err) {
         console.error(`[Auth] Error loading guardian relationships:`, err.message);
     }
@@ -124,6 +131,43 @@ module.exports = (io, app) => {
     io.on('connection', async (socket) => {
         const { userId, role } = socket.user;
         console.log(`Client connected: ${socket.id} (userId: ${userId}, role: ${role})`);
+
+        // Cancel pending suspicious disconnect timer if user reconnects
+        if (suspiciousTimers.has(userId)) {
+            clearTimeout(suspiciousTimers.get(userId));
+            suspiciousTimers.delete(userId);
+            console.log('[Connect] Cancelled pending suspicious timer for user', userId);
+        }
+
+        // Clear unreachable state immediately on connect
+        // so guardian polling picks up clean state on next cycle
+        if (role === 'user') {
+            const activeSOS = await SOS.findOne({ user: userId, isActive: true });
+            if (!activeSOS) {
+                await User.findByIdAndUpdate(userId, {
+                    isUnreachable: false,
+                    unreachableSince: null,
+                    disconnectType: null
+                });
+                console.log('[Connect] Cleared unreachable state for user', userId);
+            }
+        }
+
+        // Check for duplicate user sockets
+        if (role === 'user') {
+            const existingSocketId = userSockets.get(userId);
+            if (existingSocketId && existingSocketId !== socket.id) {
+                console.log('[Connect] Duplicate socket detected for user', userId, '— disconnecting old socket:', existingSocketId);
+                const existingSocket = io.sockets.sockets.get(existingSocketId);
+                if (existingSocket) {
+                    voluntaryDisconnects.add(existingSocketId);
+                    setTimeout(() => voluntaryDisconnects.delete(existingSocketId), 10000);
+                    existingSocket.disconnect(true);
+                    console.log('[Connect] Marked duplicate socket as voluntary before disconnect');
+                }
+            }
+            userSockets.set(userId, socket.id);
+        }
 
         // --- GUARDIAN SOCKET REGISTRATION ---
         // When a guardian connects, store their socket and load their user relationships
@@ -249,9 +293,20 @@ module.exports = (io, app) => {
         socket.on('user-online', async () => {
             const onlineUserId = socket.user.userId;
             console.log("RECEIVED user-online event for user", onlineUserId);
+
+            // Cancel grace timer if user reconnects within grace period
+            if (reconnectGraceTimers.has(onlineUserId)) {
+                clearTimeout(reconnectGraceTimers.get(onlineUserId));
+                reconnectGraceTimers.delete(onlineUserId);
+                console.log('[Reconnect] User reconnected within grace period, suspicious alert cancelled');
+            }
+
             try {
-                await User.findByIdAndUpdate(onlineUserId, { isOnline: true });
-                console.log(`User ${onlineUserId} came ONLINE via socket`);
+                const activeSOS = await SOS.findOne({ user: onlineUserId, isActive: true });
+                const updateData = { isOnline: true };
+
+                await User.findByIdAndUpdate(onlineUserId, updateData);
+                console.log(`User ${onlineUserId} came ONLINE via socket. Active SOS: ${!!activeSOS}`);
             } catch (err) {
                 console.error('User online error:', err.message);
             }
@@ -280,6 +335,75 @@ module.exports = (io, app) => {
             }
         });
 
+        // -------------------------
+        // 3-STATE DISCONNECT LOGIC
+        // -------------------------
+
+        socket.on('voluntary-offline', async () => {
+            const currentUserId = socket.user.userId;
+            console.log(`[Disconnect] User ${currentUserId} signaled voluntary offline`);
+
+            voluntaryDisconnects.add(socket.id);
+            setTimeout(() => voluntaryDisconnects.delete(socket.id), 10000); // 10s auto-cleanup
+
+            try {
+                await User.findByIdAndUpdate(currentUserId, { disconnectType: 'voluntary' });
+                socket.emit('voluntary-offline-ack');
+            } catch (err) {
+                console.error('[Disconnect] Voluntary offline DB error:', err.message);
+                // Still ack so client can disconnect even if DB fails
+                socket.emit('voluntary-offline-ack');
+            }
+        });
+
+        socket.on('duress-offline', async () => {
+            const currentUserId = socket.user.userId;
+            console.log(`[Disconnect] User ${currentUserId} signaled DURESS offline - silent SOS triggered`);
+
+            voluntaryDisconnects.add(socket.id);
+            setTimeout(() => voluntaryDisconnects.delete(socket.id), 10000); // 10s auto-cleanup
+
+            try {
+                const user = await User.findById(currentUserId);
+                const location = user ? user.lastKnownLocation : null;
+
+                // Trigger silent SOS internally
+                const newSOS = new SOS({
+                    user: currentUserId,
+                    startLocation: location,
+                    locationHistory: [location ? { lat: location.lat, lng: location.lng } : {}]
+                });
+
+                // Run critical DB writes in parallel, similar to routes/sos.js
+                await Promise.all([
+                    newSOS.save({ skipNotify: true }), // Prevent double notification if middleware exists
+                    User.findByIdAndUpdate(currentUserId, {
+                        status: 'SOS',
+                        disconnectType: 'duress'
+                    })
+                ]);
+
+                // Emit recursive scoped event
+                emitToGuardians(io, currentUserId, 'sos-status-change', {
+                    userId: currentUserId,
+                    status: 'SOS',
+                    location
+                });
+
+                // Call notifyGuardians utility explicitly ONCE
+                await notifyGuardians({
+                    userId: currentUserId,
+                    alertLevel: 'SOS',
+                    location,
+                    battery: user ? user.batteryLevel : 'Unknown',
+                    network: user ? user.networkSignal : 'Unknown'
+                });
+
+            } catch (err) {
+                console.error('[Disconnect] Duress offline error:', err.message);
+            }
+        });
+
         socket.on('disconnect', async () => {
             // Close all active streams for this socket
             activeStreams.forEach((info) => {
@@ -296,14 +420,70 @@ module.exports = (io, app) => {
                 removeGuardianMappings(disconnectedUserId);
             }
 
-            // Mark user offline if they were a regular user
+            // Check 3-State Disconnect (Voluntary vs Suspicious)
             if (disconnectedRole === 'user') {
-                try {
-                    await User.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
-                    console.log(`User ${disconnectedUserId} went OFFLINE`);
-                } catch (err) {
-                    console.error('Offline update error:', err.message);
+                // Only process if this is still the active socket for this user
+                if (userSockets.get(disconnectedUserId) === socket.id) {
+                    userSockets.delete(disconnectedUserId);
+                } else {
+                    console.log('[Disconnect] Ignoring stale socket disconnect for user', disconnectedUserId);
+                    return;
                 }
+
+                if (voluntaryDisconnects.has(socket.id)) {
+                    // Voluntary disconnect: normal offline
+                    voluntaryDisconnects.delete(socket.id);
+                    try {
+                        await User.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
+                        console.log(`User ${disconnectedUserId} went OFFLINE (Voluntary)`);
+                    } catch (err) {
+                        console.error('Offline update error (Voluntary):', err.message);
+                    }
+                } else {
+                    // Suspicious disconnect
+                    const timer = setTimeout(async () => {
+                        suspiciousTimers.delete(disconnectedUserId);
+
+                        try {
+                            console.log('[Suspicious] Starting suspicious disconnect handler for', disconnectedUserId);
+
+                            await User.findByIdAndUpdate(disconnectedUserId, {
+                                isOnline: false,
+                                disconnectType: 'suspicious',
+                                isUnreachable: true,
+                                unreachableSince: new Date()
+                            }, { new: true, returnDocument: 'after' });
+
+                            const updatedUser = await User.findById(disconnectedUserId);
+                            console.log('[Suspicious] DB updated — isUnreachable:', updatedUser.isUnreachable, 'isOnline:', updatedUser.isOnline);
+
+                            const lastKnownLocation = updatedUser.lastKnownLocation || null;
+
+                            emitToGuardians(io, disconnectedUserId, 'user-unreachable', {
+                                userId: disconnectedUserId,
+                                lastKnownLocation,
+                                lastSeen: new Date(),
+                                message: 'User disconnected unexpectedly'
+                            });
+
+                            await notifyGuardians({
+                                userId: disconnectedUserId,
+                                alertLevel: 'Unreachable',
+                                location: lastKnownLocation,
+                                battery: updatedUser.batteryLevel || 'Unknown',
+                                network: updatedUser.networkSignal || 'Unknown'
+                            });
+
+                            console.log('[Suspicious] Handler completed for', disconnectedUserId);
+                        } catch (err) {
+                            console.error('[Suspicious] ERROR in suspicious disconnect handler:', err);
+                        }
+                    }, 4000); // 4 second grace period
+
+                    suspiciousTimers.set(disconnectedUserId, timer);
+                }
+                // Cleanup Set regardless just in case
+                voluntaryDisconnects.delete(socket.id);
             }
 
             console.log(`Client disconnected: ${socket.id} (userId: ${disconnectedUserId}, role: ${disconnectedRole})`);

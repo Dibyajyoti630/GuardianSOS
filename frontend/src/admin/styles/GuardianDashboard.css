@@ -329,6 +329,11 @@
     animation: bounce 2s infinite cubic-bezier(0.28, 0.84, 0.42, 1);
 }
 
+.map-pin-pulse.unreachable-pin {
+    color: var(--guardian-warning);
+    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.5));
+}
+
 @keyframes bounce {
     0%, 100% { transform: translateY(0); }
     50% { transform: translateY(-15px); }
@@ -450,6 +455,11 @@
     background: linear-gradient(145deg, rgba(239, 68, 68, 0.06), rgba(15, 23, 42, 0.5));
 }
 
+.status-card.warning {
+    border-color: rgba(245, 158, 11, 0.2);
+    background: linear-gradient(145deg, rgba(245, 158, 11, 0.06), rgba(15, 23, 42, 0.5));
+}
+
 .status-card.offline {
     border-color: rgba(156, 163, 175, 0.2);
     background: linear-gradient(145deg, rgba(156, 163, 175, 0.04), rgba(15, 23, 42, 0.5));
@@ -488,6 +498,11 @@
 .danger .status-value {
     color: var(--guardian-danger);
     text-shadow: 0 0 24px rgba(239, 68, 68, 0.25);
+}
+
+.warning .status-value {
+    color: var(--guardian-warning);
+    text-shadow: 0 0 24px rgba(245, 158, 11, 0.25);
 }
 
 .status-desc {

@@ -149,6 +149,19 @@
     color: #8b5cf6;
 }
 
+.offline-btn {
+    transition: background-color 0.2s;
+}
+
+.offline-btn:hover {
+    background-color: rgba(245, 158, 11, 0.1) !important;
+    color: #f59e0b !important;
+}
+
+.hold-progress-fill {
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.4));
+}
+
 .settings-item:last-child:hover {
     color: #ef4444;
 }
@@ -402,6 +415,48 @@
     .dashboard-header {
         padding: var(--spacing-sm) var(--spacing-md);
         border-radius: 12px;
+        align-items: flex-start; /* Align to top so it doesn't float weirdly if text wraps */
+        gap: var(--spacing-sm);
+        flex-wrap: nowrap !important;
+        flex-direction: row !important;
+    }
+    
+    .profile-section {
+        flex: 1;
+        min-width: 0;
+        align-items: flex-start; /* Make avatar align top with text */
+        overflow: hidden;
+    }
+
+    .user-info {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+    }
+
+    .greeting {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        width: 100%;
+    }
+
+    .status-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        width: 100%;
+        line-height: 1.4;
+        margin-top: 2px;
+    }
+
+    .header-actions {
+        flex-shrink: 0;
+        /* To align with "You are being protected" (the second line), we push it down slightly */
+        margin-top: 18px; 
+        display: flex;
     }
 
     .help-modal {
@@ -428,7 +483,8 @@
     }
 
     .settings-dropdown {
-        right: -10px;
+        right: 0;
         width: 200px;
+        max-width: calc(100vw - 20px);
     }
 }
