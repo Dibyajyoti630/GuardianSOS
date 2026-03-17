@@ -142,6 +142,22 @@ module.exports = (io, app) => {
         // Clear unreachable state immediately on connect
         // so guardian polling picks up clean state on next cycle
         if (role === 'user') {
+            // Step 1: Auto-cancel stale SOS records older than 1 hour
+            await SOS.updateMany(
+                {
+                    user: userId,
+                    isActive: true,
+                    createdAt: { $lt: new Date(Date.now() - 60 * 60 * 1000) }
+                },
+                {
+                    isActive: false,
+                    cancelledAt: new Date(),
+                    cancelReason: 'auto-cancelled on reconnect after 1 hour'
+                }
+            );
+            console.log('[Connect] Auto-cancelled stale SOS records for user', userId);
+
+            // Step 2: Now check for genuinely active SOS (created within last 1 hour)
             const activeSOS = await SOS.findOne({ user: userId, isActive: true });
             if (!activeSOS) {
                 await User.findByIdAndUpdate(userId, {
