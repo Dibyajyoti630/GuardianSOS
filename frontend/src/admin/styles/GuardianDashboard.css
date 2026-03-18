@@ -1429,3 +1429,127 @@
         font-size: 0.95rem;
     }
 }
+
+/* ──────────────────────────────────────────
+   Unreachable Alert Overlay (Amber Theme)
+   ────────────────────────────────────────── */
+.unreachable-alert-overlay {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 9000;
+    padding: 1rem 1.5rem;
+    animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.unreachable-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    background: rgba(15, 12, 5, 0.94);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-left: 4px solid #f59e0b;
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.75rem;
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.5),
+        0 0 60px rgba(245, 158, 11, 0.08);
+    animation: warningPulse 3s ease-in-out infinite;
+    max-width: 860px;
+    margin: 0 auto;
+}
+
+@keyframes warningPulse {
+    0%, 100% {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 60px rgba(245, 158, 11, 0.08);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 80px rgba(245, 158, 11, 0.18);
+    }
+}
+
+.unreachable-banner .alert-content {
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.unreachable-banner .alert-content svg {
+    flex-shrink: 0;
+    color: #f59e0b;
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.5));
+}
+
+.unreachable-banner .alert-content h1 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fde68a;
+    margin: 0 0 0.25rem 0;
+    letter-spacing: 0.01em;
+}
+
+.unreachable-banner .alert-content p {
+    font-size: 0.82rem;
+    color: var(--guardian-text-muted);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.unreachable-dismiss {
+    padding: 0.6rem 1.4rem;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: #fbbf24;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-base);
+    white-space: nowrap;
+}
+
+.unreachable-dismiss:hover {
+    background: rgba(245, 158, 11, 0.2);
+    border-color: rgba(245, 158, 11, 0.5);
+    color: #fde68a;
+    transform: translateY(-1px);
+}
+
+/* Mobile Adjustments for Unreachable Alert */
+@media (max-width: 767px) {
+    .unreachable-alert-overlay {
+        padding: 0.75rem;
+    }
+
+    .unreachable-banner {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+        padding: 1.1rem 1.25rem;
+    }
+
+    .unreachable-banner .alert-content h1 {
+        font-size: 0.9rem;
+    }
+
+    .unreachable-dismiss {
+        width: 100%;
+    }
+}

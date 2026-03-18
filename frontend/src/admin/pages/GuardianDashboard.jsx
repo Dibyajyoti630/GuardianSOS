@@ -62,11 +62,11 @@ const UnreachableAlertOverlay = ({ user, location, lastSeen, onDismiss }) => (
                     <p>They did not go offline normally. Last seen at {lastSeen ? new Date(lastSeen).toLocaleTimeString() : 'Unknown'}.</p>
                 </div>
             </div>
-            <div className="unreachable-actions">
+            {/* <div className="unreachable-actions">
                 <button className="unreachable-dismiss" onClick={onDismiss}>
                     Dismiss Alert
                 </button>
-            </div>
+            </div> */}
         </div>
     </div>
 );
@@ -143,7 +143,7 @@ const GuardianDashboard = () => {
     const [showSOSAlert, setShowSOSAlert] = useState(false);
     // Map of userId -> timestamp (when snooze expires)
     const [snoozeMap, setSnoozeMap] = useState({});
-    
+
     // Track Unreachable users safely
     const [unreachableUsers, setUnreachableUsers] = useState({});
 
@@ -193,7 +193,7 @@ const GuardianDashboard = () => {
                         // Cached user is stale (wrong guardian account, deleted connection, etc.)
                         console.log('[Guardian] Cached selectedUserId not found in server data, clearing stale cache');
                         localStorage.removeItem('guardian_selected_user');
-                        
+
                         if (data.length > 0) {
                             // Switch to first available user
                             const activeUser = data.find(u => u.status === 'active') || data[0];
@@ -424,7 +424,7 @@ const GuardianDashboard = () => {
         // Listen for new user-unreachable event
         const handleUnreachable = (data) => {
             console.log(`[Guardian] Real-time UNREACHABLE status change:`, data);
-            
+
             setUnreachableUsers(prev => ({
                 ...prev,
                 [data.userId]: {
@@ -831,13 +831,13 @@ const GuardianDashboard = () => {
                                             : userStatus.location.address}
                                     </Popup>
                                 </Marker>
-                                
+
                                 {userStatus.status === 'SOS' && (
-                                    <Circle 
+                                    <Circle
                                         center={[userStatus.location.lat, userStatus.location.lng]}
                                         radius={150}
-                                        pathOptions={{ 
-                                            color: '#ef4444', 
+                                        pathOptions={{
+                                            color: '#ef4444',
                                             fillColor: '#ef4444',
                                             fillOpacity: 0.2,
                                             weight: 2
@@ -845,13 +845,13 @@ const GuardianDashboard = () => {
                                         className="pulse-red"
                                     />
                                 )}
-                                
+
                                 {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) && (
-                                    <Circle 
+                                    <Circle
                                         center={[userStatus.location.lat, userStatus.location.lng]}
                                         radius={150}
-                                        pathOptions={{ 
-                                            color: '#f59e0b', 
+                                        pathOptions={{
+                                            color: '#f59e0b',
                                             fillColor: '#f59e0b',
                                             fillOpacity: 0.2,
                                             weight: 2
@@ -901,14 +901,13 @@ const GuardianDashboard = () => {
                                 {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) ? '⚠️ Unreachable' : (!userStatus.isOnline ? 'Offline' : userStatus.status)}
                             </p>
                             <span className="status-desc">
-                                {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) ? `Contact lost • ${
-                                    unreachableUsers[selectedUserId]?.lastSeen ? new Date(unreachableUsers[selectedUserId].lastSeen).toLocaleTimeString() : 
+                                {(unreachableUsers[selectedUserId] || userStatus.isUnreachable) ? `Contact lost • ${unreachableUsers[selectedUserId]?.lastSeen ? new Date(unreachableUsers[selectedUserId].lastSeen).toLocaleTimeString() :
                                     userStatus.unreachableSince ? new Date(userStatus.unreachableSince).toLocaleTimeString() : 'Unknown'
-                                }` : 
-                                (!userStatus.isOnline ? 'User is currently offline' :
-                                    userStatus.status === 'SOS' ? 'Emergency Alert Active!' :
-                                        userStatus.status === 'Warning' ? 'User feels unsafe (Warning)' :
-                                            'Everything looks good')}
+                                    }` :
+                                    (!userStatus.isOnline ? 'User is currently offline' :
+                                        userStatus.status === 'SOS' ? 'Emergency Alert Active!' :
+                                            userStatus.status === 'Warning' ? 'User feels unsafe (Warning)' :
+                                                'Everything looks good')}
                             </span>
                         </div>
 
