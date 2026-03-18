@@ -483,8 +483,14 @@
     }
 
     .settings-dropdown {
-        right: 0;
-        width: 200px;
-        max-width: calc(100vw - 20px);
+        position: fixed;
+        top: 80px;
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+        width: 85vw;
+        max-width: 280px;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
     }
 }

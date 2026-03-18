@@ -139,8 +139,8 @@ module.exports = (io, app) => {
             console.log('[Connect] Cancelled pending suspicious timer for user', userId);
         }
 
-        // Clear unreachable state immediately on connect
-        // so guardian polling picks up clean state on next cycle
+        // Set isOnline and clear unreachable state immediately on connect
+        // Runs before any event handlers — more reliable than waiting for user-online event
         if (role === 'user') {
             // Step 1: Auto-cancel stale SOS records older than 1 hour
             await SOS.updateMany(
@@ -155,18 +155,29 @@ module.exports = (io, app) => {
                     cancelReason: 'auto-cancelled on reconnect after 1 hour'
                 }
             );
-            console.log('[Connect] Auto-cancelled stale SOS records for user', userId);
 
-            // Step 2: Now check for genuinely active SOS (created within last 1 hour)
+            // Step 2: Check for genuinely active SOS (created within last 1 hour)
             const activeSOS = await SOS.findOne({ user: userId, isActive: true });
-            if (!activeSOS) {
-                await User.findByIdAndUpdate(userId, {
+
+            // Set isOnline: true immediately on connect — reliable, runs before any event handlers
+            await User.findByIdAndUpdate(userId, {
+                isOnline: true,
+                ...(activeSOS ? {} : {
                     isUnreachable: false,
                     unreachableSince: null,
                     disconnectType: null
+                })
+            });
+
+            // Notify guardians user is back online (only when no active SOS)
+            if (!activeSOS) {
+                emitToGuardians(io, userId, 'user-back-online', {
+                    userId,
+                    timestamp: new Date()
                 });
-                console.log('[Connect] Cleared unreachable state for user', userId);
             }
+
+            console.log(`[Connect] User ${userId} came ONLINE via socket. Active SOS: ${!!activeSOS}`);
         }
 
         // Check for duplicate user sockets
@@ -318,11 +329,9 @@ module.exports = (io, app) => {
             }
 
             try {
+                // isOnline is set in the connect handler, not here
                 const activeSOS = await SOS.findOne({ user: onlineUserId, isActive: true });
-                const updateData = { isOnline: true };
-
-                await User.findByIdAndUpdate(onlineUserId, updateData);
-                console.log(`User ${onlineUserId} came ONLINE via socket. Active SOS: ${!!activeSOS}`);
+                console.log(`User ${onlineUserId} user-online event received. Active SOS: ${!!activeSOS}`);
             } catch (err) {
                 console.error('User online error:', err.message);
             }

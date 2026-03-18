@@ -435,11 +435,24 @@ const GuardianDashboard = () => {
         };
         socket.on('user-unreachable', handleUnreachable);
 
+        // Listen for user-back-online event — clears stale Unreachable state
+        const handleBackOnline = ({ userId }) => {
+            // Remove from unreachableUsers state
+            setUnreachableUsers(prev => {
+                const updated = { ...prev };
+                delete updated[userId];
+                return updated;
+            });
+            console.log('[Guardian] User back online, cleared unreachable state:', userId);
+        };
+        socket.on('user-back-online', handleBackOnline);
+
         return () => {
             socket.off('sos-status-change', handleSOSChange);
             socket.off('user-location-update', handleLocationUpdate);
             socket.off('user-stats-update', handleStatsUpdate);
             socket.off('user-unreachable', handleUnreachable);
+            socket.off('user-back-online', handleBackOnline);
         };
     }, [selectedUserId]);
 
