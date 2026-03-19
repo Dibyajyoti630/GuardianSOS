@@ -9,6 +9,8 @@ const { notifyGuardians } = require('./utils/notifyGuardians');
 
 // --- VOLUNTARY DISCONNECT TRACKING ---
 const voluntaryDisconnects = new Set(); // Stores socketIds of intentional disconnects
+const duplicateDisconnects = new Set(); // Stores socketIds killed during duplicate cleanup
+const goingOfflineUsers = new Set(); // userIds who clicked Going Offline
 const reconnectGraceTimers = new Map(); // userId -> timerId
 const userSockets = new Map(); // userId -> socketId
 const suspiciousTimers = new Map(); // userId -> timeoutId
@@ -188,7 +190,11 @@ module.exports = (io, app) => {
                 const existingSocket = io.sockets.sockets.get(existingSocketId);
                 if (existingSocket) {
                     voluntaryDisconnects.add(existingSocketId);
-                    setTimeout(() => voluntaryDisconnects.delete(existingSocketId), 10000);
+                    duplicateDisconnects.add(existingSocketId);
+                    setTimeout(() => {
+                        voluntaryDisconnects.delete(existingSocketId);
+                        duplicateDisconnects.delete(existingSocketId);
+                    }, 10000);
                     existingSocket.disconnect(true);
                     console.log('[Connect] Marked duplicate socket as voluntary before disconnect');
                 }
@@ -371,6 +377,9 @@ module.exports = (io, app) => {
             voluntaryDisconnects.add(socket.id);
             setTimeout(() => voluntaryDisconnects.delete(socket.id), 10000); // 10s auto-cleanup
 
+            goingOfflineUsers.add(currentUserId);
+            setTimeout(() => goingOfflineUsers.delete(currentUserId), 10000);
+
             try {
                 await User.findByIdAndUpdate(currentUserId, { disconnectType: 'voluntary' });
                 socket.emit('voluntary-offline-ack');
@@ -456,14 +465,25 @@ module.exports = (io, app) => {
                 }
 
                 if (voluntaryDisconnects.has(socket.id)) {
-                    // Voluntary disconnect: normal offline
-                    voluntaryDisconnects.delete(socket.id);
+                    const isGoingOffline = goingOfflineUsers.has(disconnectedUserId);
+
                     try {
-                        await User.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
-                        console.log(`User ${disconnectedUserId} went OFFLINE (Voluntary)`);
+                        if (isGoingOffline) {
+                            // Real "Going Offline" button press — set isOnline: false
+                            goingOfflineUsers.delete(disconnectedUserId);
+                            await User.findByIdAndUpdate(disconnectedUserId, { isOnline: false });
+                            console.log(`[Disconnect] User ${disconnectedUserId} went OFFLINE (Voluntary)`);
+                        } else {
+                            // Duplicate socket cleanup — skip isOnline update
+                            console.log(`[Disconnect] Voluntary disconnect (duplicate cleanup) for ${disconnectedUserId} — isOnline unchanged`);
+                        }
                     } catch (err) {
                         console.error('Offline update error (Voluntary):', err.message);
                     }
+
+                    // Clean up sets
+                    voluntaryDisconnects.delete(socket.id);
+                    duplicateDisconnects.delete(socket.id);
                 } else {
                     // Suspicious disconnect
                     const timer = setTimeout(async () => {
