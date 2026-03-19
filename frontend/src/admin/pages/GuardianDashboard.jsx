@@ -62,11 +62,11 @@ const UnreachableAlertOverlay = ({ user, location, lastSeen, onDismiss }) => (
                     <p>They did not go offline normally. Last seen at {lastSeen ? new Date(lastSeen).toLocaleTimeString() : 'Unknown'}.</p>
                 </div>
             </div>
-            {/* <div className="unreachable-actions">
+            <div className="unreachable-actions">
                 <button className="unreachable-dismiss" onClick={onDismiss}>
                     Dismiss Alert
                 </button>
-            </div> */}
+            </div>
         </div>
     </div>
 );
@@ -146,6 +146,7 @@ const GuardianDashboard = () => {
 
     // Track Unreachable users safely
     const [unreachableUsers, setUnreachableUsers] = useState({});
+    const [dismissedUnreachableIds, setDismissedUnreachableIds] = useState(new Set());
 
     // Simulated user state (fallback)
     const [userStatus, setUserStatus] = useState({
@@ -432,6 +433,12 @@ const GuardianDashboard = () => {
                     lastSeen: data.lastSeen
                 }
             }));
+            
+            setDismissedUnreachableIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(data.userId);
+                return newSet;
+            });
         };
         socket.on('user-unreachable', handleUnreachable);
 
@@ -442,6 +449,12 @@ const GuardianDashboard = () => {
                 const updated = { ...prev };
                 delete updated[userId];
                 return updated;
+            });
+            // Also need to clear from dismissed so future events popup
+            setDismissedUnreachableIds(prev => {
+                const newSet = new Set(prev);
+                newSet.delete(userId);
+                return newSet;
             });
             console.log('[Guardian] User back online, cleared unreachable state:', userId);
         };
@@ -1023,52 +1036,28 @@ const GuardianDashboard = () => {
                 )
             }
             {
-                Object.keys(unreachableUsers).length > 0 && (
-                    <>
-                        {Object.entries(unreachableUsers).map(([uid, data]) => {
-                            const u = availableUsers.find(au => au.userId === uid);
-                            if (!u) return null;
-                            return (
-                                <UnreachableAlertOverlay
-                                    key={`unreachable-${uid}`}
-                                    user={u.name}
-                                    location={data.lastKnownLocation}
-                                    lastSeen={data.lastSeen}
-                                    onDismiss={() => {
-                                        setUnreachableUsers(prev => {
-                                            const newObj = { ...prev };
-                                            delete newObj[uid];
-                                            return newObj;
-                                        });
-                                    }}
-                                />
-                            );
-                        })}
-                    </>
-                )
-            }
-            {
-                // Fallback for DB-persisted unreachable state on reload
-                Object.keys(unreachableUsers).length === 0 && availableUsers.some(u => u.isUnreachable) && (
-                    <>
-                        {availableUsers.filter(u => u.isUnreachable).map(u => (
-                            <UnreachableAlertOverlay
-                                key={`unreachable-db-${u.userId}`}
-                                user={u.name}
-                                location={u.location}
-                                lastSeen={u.unreachableSince}
-                                onDismiss={() => {
-                                    // Just silence it locally, as real update happens when they go online
-                                    // Hacky temporary fix to avoid writing another DB route to dismiss
-                                    setUnreachableUsers(prev => ({
-                                        ...prev,
-                                        [u.userId]: false // use false as a dismissed flag
-                                    }));
-                                }}
-                            />
-                        ))}
-                    </>
-                )
+                availableUsers.map(u => {
+                    const realtimeData = unreachableUsers[u.userId];
+                    const isUnreachable = realtimeData || u.isUnreachable;
+                    
+                    if (!isUnreachable || dismissedUnreachableIds.has(u.userId)) return null;
+
+                    return (
+                        <UnreachableAlertOverlay
+                            key={`unreachable-${u.userId}`}
+                            user={u.name}
+                            location={realtimeData ? realtimeData.lastKnownLocation : u.location}
+                            lastSeen={realtimeData ? realtimeData.lastSeen : u.unreachableSince}
+                            onDismiss={() => {
+                                setDismissedUnreachableIds(prev => {
+                                    const newSet = new Set(prev);
+                                    newSet.add(u.userId);
+                                    return newSet;
+                                });
+                            }}
+                        />
+                    );
+                })
             }
         </div >
     );
