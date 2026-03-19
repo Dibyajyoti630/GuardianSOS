@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { X, UserPlus, Mail, Send, CheckCircle } from 'lucide-react';
+import { X, UserPlus, Mail, Send, CheckCircle, Key } from 'lucide-react';
 import '../styles/AddGuardianModal.css';
 
 const AddGuardianModal = ({ isOpen, onClose }) => {
-    const [step, setStep] = useState('input'); // 'input', 'sending', 'sent'
+    const [step, setStep] = useState('input'); // 'input', 'sending', 'verify', 'verifying', 'connected'
     const [guardianName, setGuardianName] = useState('');
     const [guardianEmail, setGuardianEmail] = useState('');
+    const [otpCode, setOtpCode] = useState('');
+    const [verifyError, setVerifyError] = useState('');
 
     const handleInvite = async () => {
         if (!guardianName.trim() || !guardianEmail.trim()) {
@@ -33,22 +35,7 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
             });
 
             if (response.ok) {
-                const newGuardian = {
-                    id: Date.now(),
-                    name: guardianName,
-                    email: guardianEmail,
-                    status: 'pending', // pending, active
-                    dateAdded: new Date().toISOString()
-                };
-
-                // Get existing guardians from localStorage
-                const existingGuardians = JSON.parse(localStorage.getItem('guardianContacts') || '[]');
-                const updatedGuardians = [...existingGuardians, newGuardian];
-
-                // Save to localStorage
-                localStorage.setItem('guardianContacts', JSON.stringify(updatedGuardians));
-
-                setStep('sent');
+                setStep('verify');
             } else {
                 const data = await response.json();
                 alert(data.msg || 'Failed to send invite');
@@ -61,9 +48,60 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
         }
     };
 
+    const handleVerify = async () => {
+        if (!otpCode.trim() || otpCode.length < 6) {
+            setVerifyError('Please enter the 6-digit code.');
+            return;
+        }
+
+        setVerifyError('');
+        setStep('verifying');
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/invite/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token
+                },
+                body: JSON.stringify({
+                    email: guardianEmail,
+                    code: otpCode
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Save to localStorage for display in ManageGuardians
+                const newGuardian = {
+                    id: Date.now(),
+                    name: guardianName,
+                    email: guardianEmail,
+                    status: 'active',
+                    dateAdded: new Date().toISOString()
+                };
+                const existingGuardians = JSON.parse(localStorage.getItem('guardianContacts') || '[]');
+                localStorage.setItem('guardianContacts', JSON.stringify([...existingGuardians, newGuardian]));
+
+                setStep('connected');
+            } else {
+                setVerifyError(data.msg || 'Invalid or expired code. Please try again.');
+                setStep('verify');
+            }
+        } catch (error) {
+            console.error('Error verifying code:', error);
+            setVerifyError('Server error. Please try again.');
+            setStep('verify');
+        }
+    };
+
     const handleClose = () => {
         setGuardianName('');
         setGuardianEmail('');
+        setOtpCode('');
+        setVerifyError('');
         setStep('input');
         onClose();
     };
@@ -84,7 +122,8 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <div className="guardian-content">
-                    {step === 'input' || step === 'sending' ? (
+                    {/* Step 1: Input */}
+                    {(step === 'input' || step === 'sending') && (
                         <>
                             <div className="form-group">
                                 <label htmlFor="guardian-name">Guardian Name</label>
@@ -117,26 +156,75 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
                                     />
                                 </div>
                                 <p className="helper-text">
-                                    They will receive an email with a link to connect with you.
+                                    A verification code will be sent to their email.
                                 </p>
                             </div>
                         </>
-                    ) : (
+                    )}
+
+                    {/* Step 2: Enter OTP */}
+                    {(step === 'verify' || step === 'verifying') && (
+                        <div className="verify-state">
+                            <div className="verify-icon">
+                                <Key size={40} color="#3b82f6" />
+                            </div>
+                            <h3>Enter Verification Code</h3>
+                            <p>
+                                A 6-digit code was sent to <strong>{guardianEmail}</strong>. Ask your guardian to share it with you, then enter it below.
+                            </p>
+                            <div className="form-group" style={{ marginTop: '1.25rem' }}>
+                                <label htmlFor="otp-code">Verification Code</label>
+                                <div className="input-wrapper">
+                                    <input
+                                        id="otp-code"
+                                        type="text"
+                                        className="form-input otp-input"
+                                        value={otpCode}
+                                        onChange={(e) => {
+                                            setVerifyError('');
+                                            setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6));
+                                        }}
+                                        placeholder="000000"
+                                        maxLength={6}
+                                        inputMode="numeric"
+                                        autoComplete="one-time-code"
+                                        disabled={step === 'verifying'}
+                                    />
+                                </div>
+                                {verifyError && (
+                                    <p className="error-text">{verifyError}</p>
+                                )}
+                            </div>
+                            <button
+                                className="resend-link"
+                                onClick={() => {
+                                    setOtpCode('');
+                                    setVerifyError('');
+                                    setStep('input');
+                                }}
+                                disabled={step === 'verifying'}
+                            >
+                                ← Back / Resend code
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Step 3: Connected */}
+                    {step === 'connected' && (
                         <div className="success-state">
                             <div className="success-icon">
                                 <CheckCircle size={48} color="#10b981" />
                             </div>
-                            <h3>Invite Sent Successfully!</h3>
+                            <h3>Guardian Connected!</h3>
                             <p>
-                                An invitation has been sent to <strong>{guardianEmail}</strong>.
-                                Once they accept, you will be able to share your location and alerts with them.
+                                <strong>{guardianName}</strong> is now your guardian and can monitor your location and receive your alerts.
                             </p>
                         </div>
                     )}
                 </div>
 
                 <div className="guardian-footer">
-                    {step !== 'sent' ? (
+                    {step === 'input' || step === 'sending' ? (
                         <>
                             <button
                                 className="cancel-btn"
@@ -158,6 +246,23 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
                                         Send Invite
                                     </>
                                 )}
+                            </button>
+                        </>
+                    ) : step === 'verify' || step === 'verifying' ? (
+                        <>
+                            <button
+                                className="cancel-btn"
+                                onClick={handleClose}
+                                disabled={step === 'verifying'}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="save-btn"
+                                onClick={handleVerify}
+                                disabled={step === 'verifying' || otpCode.length < 6}
+                            >
+                                {step === 'verifying' ? 'Verifying...' : 'Verify & Connect'}
                             </button>
                         </>
                     ) : (

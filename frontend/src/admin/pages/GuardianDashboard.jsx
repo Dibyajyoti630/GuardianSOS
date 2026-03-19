@@ -148,6 +148,11 @@ const GuardianDashboard = () => {
     const [unreachableUsers, setUnreachableUsers] = useState({});
     const [dismissedUnreachableIds, setDismissedUnreachableIds] = useState(new Set());
 
+    // Phone number inline add state
+    const [showPhoneInput, setShowPhoneInput] = useState(false);
+    const [phoneInputValue, setPhoneInputValue] = useState('');
+    const [savingPhone, setSavingPhone] = useState(false);
+
     // Simulated user state (fallback)
     const [userStatus, setUserStatus] = useState({
         name: '...',
@@ -553,6 +558,45 @@ const GuardianDashboard = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
         navigate('/guardiansos/user/login');
+    };
+
+    const saveUserPhone = async () => {
+        const phone = phoneInputValue.trim();
+        if (!phone) return;
+
+        const currentUser = availableUsers.find(u => u.userId === selectedUserId);
+        if (!currentUser) return;
+
+        setSavingPhone(true);
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/connections/${currentUser.connectionId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-auth-token': token
+                },
+                body: JSON.stringify({ userPhone: phone })
+            });
+
+            if (response.ok) {
+                // Update local state instantly
+                setAvailableUsers(prev => prev.map(u =>
+                    u.userId === selectedUserId ? { ...u, userPhone: phone } : u
+                ));
+                setShowPhoneInput(false);
+                setPhoneInputValue('');
+                // Immediately dial
+                window.location.href = `tel:${phone}`;
+            } else {
+                alert('Failed to save phone number. Please try again.');
+            }
+        } catch (err) {
+            console.error('Error saving phone:', err);
+            alert('Server error. Please try again.');
+        } finally {
+            setSavingPhone(false);
+        }
     };
 
     const toggleTracking = async () => {
@@ -1015,7 +1059,8 @@ const GuardianDashboard = () => {
                                 if (phone) {
                                     window.location.href = `tel:${phone}`;
                                 } else {
-                                    alert('No phone number available for this user. Please re-add them with a phone number.');
+                                    setShowPhoneInput(prev => !prev);
+                                    setPhoneInputValue('');
                                 }
                             }}
                         >
@@ -1023,6 +1068,77 @@ const GuardianDashboard = () => {
                             <span>Call {userStatus.name}</span>
                         </button>
                     </div>
+
+                    {/* Inline phone number entry — shown when no phone is saved */}
+                    {showPhoneInput && (
+                        <div style={{
+                            background: 'rgba(30, 41, 59, 0.95)',
+                            border: '1px solid rgba(59, 130, 246, 0.35)',
+                            borderRadius: '14px',
+                            padding: '1rem 1.25rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.75rem',
+                            marginTop: '0.25rem',
+                            animation: 'dropdownSlide 0.2s ease-out'
+                        }}>
+                            <p style={{ margin: 0, fontSize: '0.8rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                                No phone number saved for <strong style={{ color: '#f8fafc' }}>{userStatus.name}</strong>. Add one to enable calling.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input
+                                    type="tel"
+                                    placeholder="+91 9876543210"
+                                    value={phoneInputValue}
+                                    onChange={(e) => setPhoneInputValue(e.target.value)}
+                                    disabled={savingPhone}
+                                    style={{
+                                        flex: 1,
+                                        padding: '0.6rem 0.9rem',
+                                        background: 'rgba(15, 23, 42, 0.7)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '9px',
+                                        color: 'white',
+                                        fontSize: '0.9rem',
+                                        outline: 'none'
+                                    }}
+                                    onKeyDown={(e) => e.key === 'Enter' && saveUserPhone()}
+                                />
+                                <button
+                                    onClick={saveUserPhone}
+                                    disabled={savingPhone || !phoneInputValue.trim()}
+                                    style={{
+                                        padding: '0.6rem 1rem',
+                                        background: savingPhone || !phoneInputValue.trim() ? 'rgba(59,130,246,0.3)' : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                                        border: 'none',
+                                        borderRadius: '9px',
+                                        color: 'white',
+                                        fontWeight: 600,
+                                        fontSize: '0.85rem',
+                                        cursor: savingPhone || !phoneInputValue.trim() ? 'not-allowed' : 'pointer',
+                                        transition: 'all 0.2s',
+                                        whiteSpace: 'nowrap'
+                                    }}
+                                >
+                                    {savingPhone ? 'Saving...' : 'Save & Call'}
+                                </button>
+                                <button
+                                    onClick={() => { setShowPhoneInput(false); setPhoneInputValue(''); }}
+                                    style={{
+                                        padding: '0.6rem 0.75rem',
+                                        background: 'rgba(255,255,255,0.05)',
+                                        border: '1px solid rgba(255,255,255,0.1)',
+                                        borderRadius: '9px',
+                                        color: '#94a3b8',
+                                        cursor: 'pointer',
+                                        fontSize: '0.85rem'
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </main>
 

@@ -211,10 +211,10 @@ router.get('/users/:userId/activity', auth, async (req, res) => {
 
 
 // @route   PUT api/connections/:id
-// @desc    Update connection status (e.g. stop/start tracking)
+// @desc    Update connection status and/or userPhone
 // @access  Private
 router.put('/:id', auth, async (req, res) => {
-    const { status } = req.body;
+    const { status, userPhone } = req.body;
 
     try {
         const connection = await Connection.findById(req.params.id);
@@ -228,7 +228,8 @@ router.put('/:id', auth, async (req, res) => {
             return res.status(401).json({ msg: 'Not authorized' });
         }
 
-        connection.status = status;
+        if (status !== undefined) connection.status = status;
+        if (userPhone !== undefined) connection.userPhone = userPhone;
         await connection.save();
 
         res.json(connection);
