@@ -5,9 +5,10 @@ const Connection = require('../models/Connection');
 const User = require('../models/User');
 const Invite = require('../models/Invite');
 const Activity = require('../models/Activity');
-const sgMail = require('@sendgrid/mail');
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+// DEPRECATED (SendGrid) — kept for rollback
+// const sgMail = require('@sendgrid/mail');
+// sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const emailService = require('../utils/brevoEmailService');
 
 // @route   GET api/connections/guardians
 // @desc    Get all active guardians tracking the current user
@@ -102,12 +103,7 @@ router.delete('/:id', auth, async (req, res) => {
 
         // Send Removal Email if email exists
         if (guardianEmail) {
-            const msg = {
-                to: guardianEmail,
-                from: 'guardiansosfromguardian.com@gmail.com',
-                subject: 'Guardian Access Removed',
-                text: `Hello ${guardianName},\n\n${user.name} has removed you as a guardian on GuardianSOS. You will no longer receive their safety alerts or location updates.\n\nStay Safe,\nThe GuardianSOS Team`,
-                html: `
+            const removalHtml = `
                     <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;">
                         <h2 style="color: #ef4444;">Guardian Access Removed</h2>
                         <p>Hello <strong>${guardianName}</strong>,</p>
@@ -116,10 +112,15 @@ router.delete('/:id', auth, async (req, res) => {
                         <hr style="border: 1px solid #e5e7eb; margin: 20px 0;">
                         <p style="color: #6b7280; font-size: 14px;">The GuardianSOS Team</p>
                     </div>
-                `,
-            };
+                `;
+            const removalText = `Hello ${guardianName},\n\n${user.name} has removed you as a guardian on GuardianSOS. You will no longer receive their safety alerts or location updates.\n\nStay Safe,\nThe GuardianSOS Team`;
+
+            // DEPRECATED (SendGrid) — kept for rollback
+            // const msg = { to: guardianEmail, from: 'guardiansosfromguardian.com@gmail.com', subject: 'Guardian Access Removed', text: removalText, html: removalHtml };
+            // await sgMail.send(msg);
+
             try {
-                await sgMail.send(msg);
+                await emailService.sendEmail(guardianEmail, 'Guardian Access Removed', removalHtml, removalText);
             } catch (emailErr) {
                 console.error('Email sending failed:', emailErr);
                 // Continue even if email fails

@@ -1,12 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const sgMail = require('@sendgrid/mail');
+// DEPRECATED (SendGrid) — kept for rollback
+// const sgMail = require('@sendgrid/mail');
+// sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+const emailService = require('../utils/brevoEmailService');
 const auth = require('../middleware/auth');
 const Invite = require('../models/Invite');
 const User = require('../models/User');
 const Connection = require('../models/Connection');
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 // @route   POST api/invite/send
 // @desc    Send invitation code
@@ -49,14 +50,7 @@ router.post('/send', async (req, res) => {
         await newInvite.save();
 
         // Prepare Email
-        // Note: The 'from' email must be verified in SendGrid. 
-        // Using the user's email from the prompt as a best guess.
-        const msg = {
-            to: email,
-            from: 'guardiansosfromguardian.com@gmail.com',
-            subject: 'GuardianSOS Connection Request',
-            text: `Hello ${name},\n\nYou have been invited to connect on GuardianSOS.\nYour verification code is: ${code}\n\nThis code will expire in 1 hour.`,
-            html: `
+        const inviteHtml = `
                 <div style="font-family: Arial, sans-serif; padding: 20px; background-color: #f9f9f9;">
                     <h2 style="color: #3b82f6;">GuardianSOS Connection Request</h2>
                     <p>Hello <strong>${name}</strong>,</p>
@@ -67,14 +61,22 @@ router.post('/send', async (req, res) => {
                     <p>Enter this code in the app to verify your connection.</p>
                     <p style="color: #6b7280; font-size: 14px;">This code will expire in 1 hour.</p>
                 </div>
-            `,
-        };
+            `;
+        const inviteText = `Hello ${name},\n\nYou have been invited to connect on GuardianSOS.\nYour verification code is: ${code}\n\nThis code will expire in 1 hour.`;
 
-        await sgMail.send(msg);
+        // DEPRECATED (SendGrid) — kept for rollback
+        // const msg = { to: email, from: 'guardiansosfromguardian.com@gmail.com', subject: '...', text: inviteText, html: inviteHtml };
+        // await sgMail.send(msg);
+
+        const result = await emailService.sendEmail(email, 'GuardianSOS Connection Request', inviteHtml, inviteText);
+        if (!result.success) {
+            console.error('Brevo Error:', result.error);
+            return res.status(500).json({ msg: 'Failed to send email', error: result.error });
+        }
 
         res.json({ msg: 'Invitation sent successfully' });
     } catch (err) {
-        console.error('SendGrid Error:', err.response ? err.response.body : err);
+        console.error('Email Error:', err.message);
         res.status(500).json({ msg: 'Failed to send email', error: err.message });
     }
 });

@@ -1,10 +1,12 @@
-const sgMail = require('@sendgrid/mail');
+// DEPRECATED (SendGrid) — kept for rollback
+// const sgMail = require('@sendgrid/mail');
+// sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+const emailService = require('./brevoEmailService');
 const twilio = require('twilio');
 const User = require('../models/User');
 const Connection = require('../models/Connection');
 const EmergencyContact = require('../models/EmergencyContact');
-
-sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 /**
  * Sends SMS and Email notifications to a user's guardians and emergency contacts.
@@ -137,21 +139,27 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
                 }).catch(err => console.error('[Notify] Twilio Error (Guardian):', err.message));
             }
 
-            const msg = {
-                to: conn.guardian.email,
-                from: 'guardiansosfromguardian.com@gmail.com',
-                subject: emailSubject,
-                text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
-                html: emailHtml
-            };
-            
+            // DEPRECATED (SendGrid) — kept for rollback
+            // const msg = {
+            //     to: conn.guardian.email,
+            //     from: 'guardiansosfromguardian.com@gmail.com',
+            //     subject: emailSubject,
+            //     text: `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`,
+            //     html: emailHtml
+            // };
+            // return sgMail.send(msg).then(...).catch(...);
+
             console.log(`[Notify] Sending email to: ${conn.guardian.email}`);
-            return sgMail.send(msg).then(() => {
-                console.log(`[Notify] Email sent successfully to: ${conn.guardian.email}`);
-            }).catch(err => {
-                console.error(`[Notify] Email FAILED to: ${conn.guardian.email}`, err.message);
-                if (err.response) {
-                    console.error('[Notify] SendGrid Error body:', JSON.stringify(err.response.body));
+            return emailService.sendEmail(
+                conn.guardian.email,
+                emailSubject,
+                emailHtml,
+                `${smsMessage}\n\nPlease check the GuardianSOS app immediately.`
+            ).then(result => {
+                if (result.success) {
+                    console.log(`[Notify] Email sent successfully to: ${conn.guardian.email}`);
+                } else {
+                    console.error(`[Notify] Email FAILED to: ${conn.guardian.email}`, result.error);
                 }
             });
         });
@@ -210,20 +218,23 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
             }
 
             if (contact.email) {
-                emailPromises.push(sgMail.send({
-                    to: contact.email,
-                    from: 'guardiansosfromguardian.com@gmail.com',
-                    subject: emailSubject,
-                    text: contactSms,
-                    html: contactEmailHtml
-                }).then(() => {
-                    console.log(`[Notify] Email sent to emergency contact: ${contact.email}`);
-                }).catch(err => {
-                    console.error(`[Notify] Email FAILED to emergency contact: ${contact.email}`, err.message);
-                    if (err.response) {
-                        console.error('[Notify] SendGrid Error body:', JSON.stringify(err.response.body));
-                    }
-                }));
+                // DEPRECATED (SendGrid) — kept for rollback
+                // emailPromises.push(sgMail.send({ to: contact.email, ... }));
+
+                emailPromises.push(
+                    emailService.sendEmail(
+                        contact.email,
+                        emailSubject,
+                        contactEmailHtml,
+                        contactSms
+                    ).then(result => {
+                        if (result.success) {
+                            console.log(`[Notify] Email sent to emergency contact: ${contact.email}`);
+                        } else {
+                            console.error(`[Notify] Email FAILED to emergency contact: ${contact.email}`, result.error);
+                        }
+                    })
+                );
             }
         });
 
