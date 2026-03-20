@@ -1,14 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Phone, Users, Video, Volume2, VolumeX } from 'lucide-react';
+import { Phone, Users, Volume2, VolumeX } from 'lucide-react';
 import EmergencyContacts from './EmergencyContacts';
 import FakeCall from './FakeCall';
-import RecordModal from './RecordModal';
+import EmergencyCallModal from './EmergencyCallModal';
 import '../styles/QuickActions.css';
 
-const QuickActions = () => {
+const QuickActions = ({ socket, userId }) => {
     const [showContactsModal, setShowContactsModal] = useState(false);
     const [showFakeCall, setShowFakeCall] = useState(false);
-    const [showRecordModal, setShowRecordModal] = useState(false);
+    const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [isSirenPlaying, setIsSirenPlaying] = useState(false);
 
     const audioContextRef = useRef(null);
@@ -79,8 +79,8 @@ const QuickActions = () => {
             setShowContactsModal(true);
         } else if (label === 'Fake Call') {
             setShowFakeCall(true);
-        } else if (label === 'Record') {
-            setShowRecordModal(true);
+        } else if (label === 'Emergency') {
+            setShowEmergencyModal(true);
         } else if (label === 'Siren') {
             toggleSiren();
         } else {
@@ -92,7 +92,7 @@ const QuickActions = () => {
     const actions = [
         { icon: <Phone size={24} />, label: "Fake Call", color: "#4CC9F0" },
         { icon: <Users size={24} />, label: "Contacts", color: "#4361EE" },
-        { icon: <Video size={24} />, label: "Record", color: "#F72585" },
+        { icon: <span style={{ fontSize: '1.4rem' }}>📞</span>, label: "Emergency", color: "#EF4444" },
         {
             icon: isSirenPlaying ? <VolumeX size={24} /> : <Volume2 size={24} />,
             label: "Siren",
@@ -135,9 +135,21 @@ const QuickActions = () => {
                 onClose={() => setShowFakeCall(false)}
             />
 
-            <RecordModal
-                isOpen={showRecordModal}
-                onClose={() => setShowRecordModal(false)}
+            <EmergencyCallModal
+                isOpen={showEmergencyModal}
+                onClose={() => setShowEmergencyModal(false)}
+                context="user"
+                onContactSelected={(contact) => {
+                    if (socket && userId) {
+                        socket.emit('emergency:call-initiated', {
+                            userId,
+                            contactType: contact.key,
+                            contactName: contact.name,
+                            number: contact.number,
+                            timestamp: new Date()
+                        });
+                    }
+                }}
             />
         </>
     );

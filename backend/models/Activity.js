@@ -8,8 +8,17 @@ const activitySchema = new mongoose.Schema({
     },
     type: {
         type: String,
-        enum: ['status', 'location', 'battery', 'network'],
+        enum: [
+            'status', 'location', 'battery', 'network',
+            'EMERGENCY_CALL_INITIATED', 'GUARDIAN_CALL_INITIATED', 'LOCATION_SHARED'
+        ],
         required: true
+    },
+    contactType: {
+        type: String
+    },
+    metadata: {
+        type: mongoose.Schema.Types.Mixed
     },
     text: {
         type: String,

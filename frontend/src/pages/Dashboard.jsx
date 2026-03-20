@@ -424,7 +424,7 @@ const Dashboard = () => {
                 </section>
 
                 <section className="actions-section">
-                    <QuickActions />
+                    <QuickActions socket={socket} userId={user._id} />
                 </section>
 
                 <HistoryPreview />

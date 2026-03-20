@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-    MapPin, Battery, Camera, Video, Phone,
+    MapPin, Battery, Video, Phone,
     Shield, Clock, Navigation, AlertTriangle, UserPlus, Mail, ArrowRight,
     CheckCircle, ShieldCheck, Users, LogOut, ChevronDown, List, RefreshCw
 } from 'lucide-react';
@@ -10,6 +10,7 @@ import '../styles/GuardianDashboard.css';
 import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
+import EmergencyCallModal from '../../components/EmergencyCallModal';
 
 // Fix for default marker icon in Leaflet with Webpack/Vite
 delete L.Icon.Default.prototype._getIconUrl;
@@ -172,6 +173,10 @@ const GuardianDashboard = () => {
     const [timeline, setTimeline] = useState([]);
     const [loadingTimeline, setLoadingTimeline] = useState(false);
     const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+
+    // Emergency Call Modal & Toast
+    const [showEmergencyModal, setShowEmergencyModal] = useState(false);
+    const [toast, setToast] = useState(null);
 
     // Fetch available connected users
     const fetchUsers = async () => {
@@ -465,12 +470,21 @@ const GuardianDashboard = () => {
         };
         socket.on('user-back-online', handleBackOnline);
 
+        // Listen for real-time activity updates from emergency events
+        const handleActivityNew = (data) => {
+            if (data.activity && data.activity.userId === selectedUserIdRef.current) {
+                setTimeline(prev => [data.activity, ...prev]);
+            }
+        };
+        socket.on('activity:new', handleActivityNew);
+
         return () => {
             socket.off('sos-status-change', handleSOSChange);
             socket.off('user-location-update', handleLocationUpdate);
             socket.off('user-stats-update', handleStatsUpdate);
             socket.off('user-unreachable', handleUnreachable);
             socket.off('user-back-online', handleBackOnline);
+            socket.off('activity:new', handleActivityNew);
         };
     }, [selectedUserId]);
 
@@ -642,6 +656,61 @@ const GuardianDashboard = () => {
         }
     };
 
+    // Get guardian info from local storage
+    const guardianUser = JSON.parse(localStorage.getItem('user') || '{}');
+    const guardianId = guardianUser._id || guardianUser.id || '';
+    const guardianName = guardianUser.name || 'Guardian';
+
+    const handleShareLocation = async () => {
+        const loc = userStatus?.location;
+        if (!loc || !loc.lat || !loc.lng) {
+            setToast('❌ Location unavailable');
+            setTimeout(() => setToast(null), 3000);
+            return;
+        }
+
+        const googleMapsUrl = `https://maps.google.com/?q=${loc.lat},${loc.lng}`;
+        const socket = socketRef.current;
+
+        const emitLocationShared = () => {
+            if (socket && selectedUserId) {
+                socket.emit('guardian:location-shared', {
+                    userId: selectedUserId,
+                    guardianId,
+                    guardianName,
+                    timestamp: new Date()
+                });
+            }
+        };
+
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: `${userStatus.name}'s Emergency Location`,
+                    text: 'Emergency location link',
+                    url: googleMapsUrl
+                });
+                emitLocationShared();
+                setToast('✅ Location shared successfully');
+                setTimeout(() => setToast(null), 3000);
+            } catch (err) {
+                // User cancelled native share — do nothing
+                console.log('[ShareLocation] Native share cancelled');
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(googleMapsUrl);
+                emitLocationShared();
+                setToast('📍 Location link copied to clipboard');
+                setTimeout(() => setToast(null), 3000);
+            } catch (err) {
+                // Clipboard failed — show prompt as last resort
+                prompt('Copy this location link:', googleMapsUrl);
+                emitLocationShared();
+            }
+        }
+    };
+
     const currentUserConnection = availableUsers.find(u => u.userId === selectedUserId);
     const isTracking = currentUserConnection?.status === 'active';
 
@@ -798,6 +867,7 @@ const GuardianDashboard = () => {
 
     // DASHBOARD VIEW
     return (
+        <>
         <div className="guardian-dashboard">
             <header className="dashboard-header">
                 <div className="logo-section">
@@ -976,13 +1046,22 @@ const GuardianDashboard = () => {
                                     <span className="stat-label">Battery</span>
                                 </div>
                             </div>
-                            <div className="stat-card" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                                <Camera size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
+                            {/* Share Location replaces Camera — functional stat-card style */}
+                            <button
+                                className="stat-card share-location-stat"
+                                onClick={handleShareLocation}
+                                disabled={!userStatus?.location?.lat || !userStatus?.location?.lng}
+                                title={(!userStatus?.location?.lat || !userStatus?.location?.lng) ? 'Location unavailable' : 'Share location'}
+                            >
+                                <Navigation
+                                    size={20}
+                                    color={(!userStatus?.location?.lat || !userStatus?.location?.lng) ? '#64748b' : '#22C55E'}
+                                />
                                 <div className="stat-info">
-                                    <span className="stat-value">--</span>
-                                    <span className="stat-label">Camera</span>
+                                    <span className="stat-value" style={{ fontSize: '0.7rem', fontWeight: 700, color: (!userStatus?.location?.lat || !userStatus?.location?.lng) ? '#64748b' : '#22C55E' }}>Share</span>
+                                    <span className="stat-label">Location</span>
                                 </div>
-                            </div>
+                            </button>
                             <div className="stat-card" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
                                 <Video size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
                                 <div className="stat-info">
@@ -1047,7 +1126,10 @@ const GuardianDashboard = () => {
                     </div>
 
                     <div className="quick-actions">
-                        <button className="action-button emergency">
+                        <button
+                            className="action-button emergency"
+                            onClick={() => setShowEmergencyModal(true)}
+                        >
                             <AlertTriangle size={20} />
                             <span>Emergency SOS</span>
                         </button>
@@ -1175,7 +1257,52 @@ const GuardianDashboard = () => {
                     );
                 })
             }
-        </div >
+        </div>
+
+            {/* Emergency Call Modal */}
+            <EmergencyCallModal
+                isOpen={showEmergencyModal}
+                onClose={() => setShowEmergencyModal(false)}
+                context="guardian"
+                onContactSelected={(contact) => {
+                    const socket = socketRef.current;
+                    if (socket && selectedUserId) {
+                        socket.emit('guardian:call-initiated', {
+                            userId: selectedUserId,
+                            guardianId,
+                            guardianName,
+                            contactType: contact.key,
+                            contactName: contact.name,
+                            number: contact.number,
+                            timestamp: new Date()
+                        });
+                    }
+                }}
+            />
+
+            {/* Success Toast */}
+            {toast && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '80px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(30, 41, 59, 0.97)',
+                    border: '1px solid #22C55E',
+                    color: '#22C55E',
+                    padding: '12px 24px',
+                    borderRadius: '10px',
+                    fontWeight: '600',
+                    fontSize: '0.92rem',
+                    zIndex: 10000,
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                    animation: 'slideUp 0.3s ease'
+                }}>
+                    {toast}
+                </div>
+            )}
+        </>
     );
 };
 

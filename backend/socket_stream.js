@@ -5,6 +5,7 @@ const Evidence = require('./models/Evidence');
 const SOS = require('./models/SOS');
 const User = require('./models/User');
 const Connection = require('./models/Connection');
+const Activity = require('./models/Activity');
 const { notifyGuardians } = require('./utils/notifyGuardians');
 
 // --- VOLUNTARY DISCONNECT TRACKING ---
@@ -435,6 +436,78 @@ module.exports = (io, app) => {
 
             } catch (err) {
                 console.error('[Disconnect] Duress offline error:', err.message);
+            }
+        });
+
+        // -------------------------
+        // EMERGENCY CALL & LOCATION SHARING
+        // -------------------------
+
+        socket.on('emergency:call-initiated', async (data) => {
+            try {
+                const { userId, contactType, contactName, number, timestamp } = data;
+
+                const activity = await Activity.create({
+                    userId,
+                    type: 'EMERGENCY_CALL_INITIATED',
+                    text: `User initiated call to ${contactName} (${number})`,
+                    contactType,
+                    metadata: { number, contactName }
+                });
+
+                // Emit to all guardians of this user
+                emitToGuardians(io, userId, 'activity:new', { activity });
+
+                console.log(`[Emergency] User ${userId} initiated call to ${contactName} (${number})`);
+            } catch (err) {
+                console.error('[Emergency] emergency:call-initiated error:', err.message);
+            }
+        });
+
+        socket.on('guardian:call-initiated', async (data) => {
+            try {
+                const { userId, guardianId, guardianName, contactType, contactName, number, timestamp } = data;
+
+                const activity = await Activity.create({
+                    userId,
+                    type: 'GUARDIAN_CALL_INITIATED',
+                    text: `${guardianName} initiated call to ${contactName} (${number})`,
+                    contactType,
+                    metadata: { number, contactName, guardianName, guardianId }
+                });
+
+                // Emit to user socket
+                const userSocketId = userSockets.get(userId);
+                if (userSocketId) {
+                    io.to(userSocketId).emit('activity:new', { activity });
+                }
+
+                // Emit to all guardians of this user
+                emitToGuardians(io, userId, 'activity:new', { activity });
+
+                console.log(`[Emergency] Guardian ${guardianName} initiated call to ${contactName} (${number}) for user ${userId}`);
+            } catch (err) {
+                console.error('[Emergency] guardian:call-initiated error:', err.message);
+            }
+        });
+
+        socket.on('guardian:location-shared', async (data) => {
+            try {
+                const { userId, guardianId, guardianName, timestamp } = data;
+
+                const activity = await Activity.create({
+                    userId,
+                    type: 'LOCATION_SHARED',
+                    text: `${guardianName} shared location with authorities`,
+                    metadata: { guardianName, guardianId }
+                });
+
+                // Emit to all guardians of this user
+                emitToGuardians(io, userId, 'activity:new', { activity });
+
+                console.log(`[Emergency] Guardian ${guardianName} shared location for user ${userId}`);
+            } catch (err) {
+                console.error('[Emergency] guardian:location-shared error:', err.message);
             }
         });
 
