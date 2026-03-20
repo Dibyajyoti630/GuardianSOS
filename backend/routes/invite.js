@@ -83,39 +83,48 @@ router.post('/send', async (req, res) => {
 
 // @route   POST api/invite/verify
 // @desc    Verify code and create connection
-router.post('/verify', auth, async (req, res) => {
+// NOTE: No auth middleware — guardian_tracking verifies guardian JWT inline;
+//       guardian_request identifies the user via invite.inviterEmail (no JWT needed).
+router.post('/verify', async (req, res) => {
     const { email, code } = req.body;
-    // req.user.id is the person verifying (The Guardian)
 
     try {
-        const invite = await Invite.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') }, code });
+        const escapeRegex = (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const invite = await Invite.findOne({
+            email: { $regex: new RegExp('^' + escapeRegex(email) + '$', 'i') },
+            code
+        });
 
         if (!invite) {
             return res.status(400).json({ msg: 'Invalid or expired code' });
         }
 
-        // Code matched
-
-        // If this was a guardian_tracking invite, create a connection
-        // The 'email' in the invite is the User's email (target)
-        // The person calling verify is the Guardian (req.user.id)
+        // ── guardian_tracking ──────────────────────────────────────────────────
+        // Guardian is logged-in and verifies by entering the user's email + OTP.
+        // JWT is required here.
         if (invite.type === 'guardian_tracking') {
-            const targetUser = await User.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } });
+            const jwt = require('jsonwebtoken');
+            const token = req.header('x-auth-token');
+            if (!token) {
+                return res.status(401).json({ msg: 'No token — guardian must be logged in to verify' });
+            }
+            let guardianId;
+            try {
+                const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+                guardianId = decoded.user.id;
+            } catch (e) {
+                return res.status(401).json({ msg: 'Token is not valid' });
+            }
 
+            const targetUser = await User.findOne({ email: { $regex: new RegExp('^' + escapeRegex(email) + '$', 'i') } });
             if (!targetUser) {
                 return res.status(400).json({ msg: 'User account not found. They may need to sign up first.' });
             }
 
-            // Check if active connection already exists
-            let connection = await Connection.findOne({
-                guardian: req.user.id,
-                user: targetUser._id,
-                status: 'active'
-            });
-
+            let connection = await Connection.findOne({ guardian: guardianId, user: targetUser._id, status: 'active' });
             if (!connection) {
                 connection = new Connection({
-                    guardian: req.user.id,
+                    guardian: guardianId,
                     user: targetUser._id,
                     userPhone: invite.phone || '',
                     status: 'active'
@@ -124,27 +133,29 @@ router.post('/verify', auth, async (req, res) => {
             }
         }
 
-        // If this was a guardian_request invite, create a connection
-        // The 'email' in the invite is the Guardian's email (target)
-        // The person calling verify is the User (req.user.id)
+        // ── guardian_request ───────────────────────────────────────────────────
+        // User sent the invite; guardian received OTP. User enters the OTP.
+        // User is identified via inviterEmail stored in the invite — no JWT required.
         if (invite.type === 'guardian_request') {
-            const targetGuardian = await User.findOne({ email: { $regex: new RegExp('^' + email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i') } });
+            if (!invite.inviterEmail) {
+                return res.status(400).json({ msg: 'Invite is missing sender information. Please re-send the invite.' });
+            }
 
+            const invitingUser = await User.findOne({ email: { $regex: new RegExp('^' + escapeRegex(invite.inviterEmail) + '$', 'i') } });
+            if (!invitingUser) {
+                return res.status(400).json({ msg: 'Your user account was not found. Please log in again.' });
+            }
+
+            const targetGuardian = await User.findOne({ email: { $regex: new RegExp('^' + escapeRegex(email) + '$', 'i') } });
             if (!targetGuardian) {
                 return res.status(400).json({ msg: 'Guardian account not found. They may need to sign up first.' });
             }
 
-            // Check if active connection already exists
-            let connection = await Connection.findOne({
-                guardian: targetGuardian._id,
-                user: req.user.id,
-                status: 'active'
-            });
-
+            let connection = await Connection.findOne({ guardian: targetGuardian._id, user: invitingUser._id, status: 'active' });
             if (!connection) {
                 connection = new Connection({
                     guardian: targetGuardian._id,
-                    user: req.user.id,
+                    user: invitingUser._id,
                     userPhone: invite.phone || '',
                     status: 'active'
                 });

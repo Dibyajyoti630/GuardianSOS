@@ -92,20 +92,15 @@ router.post('/trigger', auth, async (req, res) => {
 // @access  Private
 router.post('/cancel', auth, async (req, res) => {
     try {
-        // Find active SOS for this user
-        const activeSOS = await SOS.findOne({
-            user: req.user.id,
-            isActive: true
-        }).sort({ startTime: -1 });
-
-        if (activeSOS) {
-            activeSOS.isActive = false;
-            activeSOS.endTime = Date.now();
-        }
+        // Cancel ALL active SOS records for this user (not just the latest)
+        const cancelledAt = new Date();
 
         // Run all DB writes in parallel for speed
         await Promise.all([
-            activeSOS ? activeSOS.save() : Promise.resolve(),
+            SOS.updateMany(
+                { user: req.user.id, isActive: true },
+                { isActive: false, endTime: cancelledAt, cancelledAt }
+            ),
             User.findByIdAndUpdate(req.user.id, { status: 'Safe' }),
             Activity.create({
                 userId: req.user.id,

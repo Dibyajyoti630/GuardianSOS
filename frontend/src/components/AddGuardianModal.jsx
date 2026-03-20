@@ -58,12 +58,10 @@ const AddGuardianModal = ({ isOpen, onClose }) => {
         setStep('verifying');
 
         try {
-            const token = localStorage.getItem('token');
             const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/invite/verify', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'x-auth-token': token
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
                     email: guardianEmail,
