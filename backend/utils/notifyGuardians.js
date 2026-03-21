@@ -31,11 +31,19 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
             return;
         }
 
-        const googleMapsLink = location && location.lat && location.lng
+        const googleMapsUrl = location && location.lat && location.lng
             ? `https://www.google.com/maps?q=${location.lat},${location.lng}`
-            : 'Unknown Location';
+            : null;
         
-        const locationText = location && location.address ? location.address : googleMapsLink;
+        const googleMapsLinkTemplate = googleMapsUrl 
+            ? `<a href="${googleMapsUrl}" style="color: #dc2626;">View on Google Maps</a>`
+            : `<span>Location unavailable</span>`;
+
+        const googleMapsText = googleMapsUrl || 'Unknown Location';
+        
+        const locationText = location && location.address ? location.address : googleMapsText;
+
+        const backendUrl = process.env.BACKEND_URL || 'https://guardiansos-backend.onrender.com';
 
         // Format Date to DD/MM/YYYY HH:mm:ss in IST
         const now = new Date();
@@ -72,14 +80,14 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
                 `;
             } else {
                 emailSubject = `SOS ALERT: ${user.name} needs help!`;
-                smsMessageTemplate = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsLink}\nBattery: ${battery}%\nNetwork: ${network}\nTrack Live: {dashboardLink}`;
+                smsMessageTemplate = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsText}\nBattery: ${battery}%\nNetwork: ${network}\nTrack Live: {dashboardLink}`;
                 emailHtmlTemplate = `
                     <div style="background-color: #fee2e2; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif; color: #991b1b;">
                         <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
                         <p><strong>Time:</strong> ${formattedDate}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}" style="color: #dc2626;">View on Google Maps</a></p>
-                        <p><strong>Evidence:</strong> <a href="${process.env.BACKEND_URL || 'http://localhost:5000'}/api/evidence/latest/${userId}" style="color: #dc2626;">📸 View Captured Photo</a></p>
+                        <p><strong>Location:</strong> ${googleMapsLinkTemplate}</p>
+                        <p><strong>Evidence:</strong> <a href="${backendUrl}/api/evidence/latest/${userId}" style="color: #dc2626;">📸 View Captured Photo</a></p>
                         <p><strong>Battery:</strong> ${battery}%</p>
                         <p><strong>Network:</strong> ${network}</p>
                         <div style="margin-top: 20px;">
@@ -197,14 +205,14 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
                     </div>
                 `;
             } else if (alertLevel === 'SOS') {
-                contactSms = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsLink}\nBattery: ${battery}%\nNetwork: ${network}\nCheck GuardianSOS app!`;
+                contactSms = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsText}\nBattery: ${battery}%\nNetwork: ${network}\nCheck GuardianSOS app!`;
                 contactEmailHtml = `
                     <div style="background-color: #fee2e2; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif; color: #991b1b;">
                         <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
                         <p><strong>Time:</strong> ${formattedDate}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}" style="color: #dc2626;">View on Google Maps</a></p>
-                        <p><strong>Evidence:</strong> <a href="${process.env.BACKEND_URL || 'http://localhost:5000'}/api/evidence/latest/${userId}" style="color: #dc2626;">📸 View Captured Photo</a></p>
+                        <p><strong>Location:</strong> ${googleMapsLinkTemplate}</p>
+                        <p><strong>Evidence:</strong> <a href="${backendUrl}/api/evidence/latest/${userId}" style="color: #dc2626;">📸 View Captured Photo</a></p>
                         <p><strong>Battery:</strong> ${battery}%</p>
                         <p><strong>Network:</strong> ${network}</p>
                         <p>Please contact emergency services or check the GuardianSOS app immediately if you are a registered Guardian.</p>
