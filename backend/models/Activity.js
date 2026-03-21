@@ -10,7 +10,8 @@ const activitySchema = new mongoose.Schema({
         type: String,
         enum: [
             'status', 'location', 'battery', 'network',
-            'EMERGENCY_CALL_INITIATED', 'GUARDIAN_CALL_INITIATED', 'LOCATION_SHARED'
+            'EMERGENCY_CALL_INITIATED', 'GUARDIAN_CALL_INITIATED', 'LOCATION_SHARED',
+            'PHOTO_REQUESTED'
         ],
         required: true
     },

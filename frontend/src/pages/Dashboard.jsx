@@ -5,8 +5,10 @@ import StatusIndicator from '../components/StatusIndicator'
 import LocationCard from '../components/LocationCard'
 import QuickActions from '../components/QuickActions'
 import HistoryPreview from '../components/HistoryPreview'
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Camera } from 'lucide-react';
 import io from 'socket.io-client';
+import { captureEvidence } from '../utils/evidenceCapture';
+import PermissionModals from '../components/PermissionModals';
 
 const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:5000'), {
     autoConnect: false
@@ -18,6 +20,14 @@ const Dashboard = () => {
     const [isSOSActive, setIsSOSActive] = useState(false);
     const [trackingInfo, setTrackingInfo] = useState({ isTracking: false, names: [] });
     const sirenRef = React.useRef(null);
+
+    const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+    const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+    const [showLocationModal, setShowLocationModal] = useState(false);
+    const [showCameraModal, setShowCameraModal] = useState(false);
+    
+    // Toast notification state
+    const [toast, setToast] = useState(null);
 
     const startSiren = () => {
         if (sirenRef.current) return;
@@ -208,6 +218,62 @@ const Dashboard = () => {
         };
     }, [isSOSActive, trackingInfo.isTracking]);
 
+    // Handle remote photo requests
+    React.useEffect(() => {
+        const handlePhotoRequest = async (data) => {
+            const { guardianName, cameraType } = data;
+            
+            console.log(`📸 Photo requested by ${guardianName} (${cameraType} camera)`);
+            
+            // Show toast notification to user
+            setToast(<><Camera size={16} /> {guardianName} requested a photo</>);
+            setTimeout(() => setToast(null), 3000);
+
+            // Capture photo with requested camera type
+            const result = await captureEvidence(user._id || user.id, 'GUARDIAN_REQUEST', cameraType);
+            
+            if (result.success) {
+                console.log('✅ Guardian-requested photo captured');
+            } else {
+                console.warn('⚠️ Guardian-requested photo failed:', result.reason);
+            }
+        };
+
+        socket.on('guardian:request-photo', handlePhotoRequest);
+        return () => socket.off('guardian:request-photo', handlePhotoRequest);
+    }, [user._id, user.id]);
+
+    React.useEffect(() => {
+        if (navigator.permissions && navigator.permissions.query) {
+            navigator.permissions.query({ name: 'geolocation' })
+                .then(result => {
+                    if (result.state === 'granted') {
+                        setLocationPermissionGranted(true);
+                    } else if (result.state === 'prompt') {
+                        setShowLocationModal(true);
+                    }
+                })
+                .catch(err => console.log('Permission query not supported'));
+        }
+    }, []);
+
+    React.useEffect(() => {
+        if (locationPermissionGranted && navigator.permissions && navigator.permissions.query) {
+            const timer = setTimeout(() => {
+                navigator.permissions.query({ name: 'camera' })
+                    .then(result => {
+                        if (result.state === 'prompt') {
+                            setShowCameraModal(true);
+                        } else if (result.state === 'granted') {
+                            setCameraPermissionGranted(true);
+                        }
+                    })
+                    .catch(err => console.log('Camera permission query not supported'));
+            }, 3000);
+            return () => clearTimeout(timer);
+        }
+    }, [locationPermissionGranted]);
+
     const handleSOSSingleClick = async () => {
         // Warning State
         setIsSOSActive(true);
@@ -328,6 +394,19 @@ const Dashboard = () => {
             await sendSOS();
             console.log("SOS Triggered Successfully");
 
+            // Attempt evidence capture (async, fire-and-forget)
+            captureEvidence(user._id || user.id, 'SOS_TRIGGER')
+                .then(result => {
+                    if (result.success) {
+                        console.log(`✅ Evidence captured: ${result.compressedSize} bytes`);
+                    } else {
+                        console.warn(`⚠️ Evidence capture failed: ${result.reason}`);
+                    }
+                })
+                .catch(err => {
+                    console.error('Evidence capture error:', err);
+                });
+
         } catch (err) {
             console.error("SOS Trigger Failed", err);
             alert("Failed to send SOS Alert. Please call police manually.");
@@ -428,6 +507,48 @@ const Dashboard = () => {
                 </section>
 
                 <HistoryPreview />
+
+                <PermissionModals
+                    showLocationModal={showLocationModal}
+                    showCameraModal={showCameraModal}
+                    onLocationGranted={() => {
+                        setLocationPermissionGranted(true);
+                        setShowLocationModal(false);
+                    }}
+                    onCameraGranted={() => {
+                        setCameraPermissionGranted(true);
+                        setShowCameraModal(false);
+                    }}
+                    onCameraSkipped={() => {
+                        setShowCameraModal(false);
+                    }}
+                />
+
+                {/* Success Toast */}
+                {toast && (
+                    <div style={{
+                        position: 'fixed',
+                        bottom: '80px',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(30, 41, 59, 0.97)',
+                        border: '1px solid #22C55E',
+                        color: '#22C55E',
+                        padding: '12px 24px',
+                        borderRadius: '10px',
+                        fontWeight: '600',
+                        fontSize: '0.92rem',
+                        zIndex: 10000,
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+                        animation: 'slideUp 0.3s ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                    }}>
+                        {toast}
+                    </div>
+                )}
             </main>
         </div>
     )

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
     MapPin, Battery, Video, Phone,
     Shield, Clock, Navigation, AlertTriangle, UserPlus, Mail, ArrowRight,
-    CheckCircle, ShieldCheck, Users, LogOut, ChevronDown, List, RefreshCw
+    CheckCircle, ShieldCheck, Users, LogOut, ChevronDown, List, RefreshCw, Camera, User
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import io from 'socket.io-client';
@@ -11,7 +11,7 @@ import 'leaflet/dist/leaflet.css';
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from 'react-leaflet';
 import L from 'leaflet';
 import EmergencyCallModal from '../../components/EmergencyCallModal';
-
+import EvidenceModal from '../../components/EvidenceModal';
 // Fix for default marker icon in Leaflet with Webpack/Vite
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -174,9 +174,36 @@ const GuardianDashboard = () => {
     const [loadingTimeline, setLoadingTimeline] = useState(false);
     const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
 
-    // Emergency Call Modal & Toast
     const [showEmergencyModal, setShowEmergencyModal] = useState(false);
     const [toast, setToast] = useState(null);
+
+    const [evidenceList, setEvidenceList] = useState([]);
+    const [showEvidenceModal, setShowEvidenceModal] = useState(false);
+    
+    // Remote Camera State
+    const [photoRequestSent, setPhotoRequestSent] = useState(false);
+
+    const handleRequestPhoto = (cameraType) => {
+        // Emit socket event to user
+        const socket = socketRef.current;
+        if (!socket || !selectedUserId || !guardianId) return;
+
+        socket.emit('guardian:request-photo', {
+            userId: selectedUserId,
+            guardianId: guardianId,
+            guardianName: guardianName,
+            cameraType: cameraType, // 'environment' or 'user'
+            timestamp: new Date()
+        });
+
+        setPhotoRequestSent(true);
+        setToast(<><Camera size={16} /> Photo request sent ({cameraType === 'user' ? 'Front' : 'Back'} camera)</>);
+        
+        setTimeout(() => {
+            setPhotoRequestSent(false);
+            setToast(null);
+        }, 3000);
+    };
 
     // Fetch available connected users
     const fetchUsers = async () => {
@@ -266,6 +293,18 @@ const GuardianDashboard = () => {
             }
         } finally {
             if (isInitialLoad) setLoadingTimeline(false);
+        }
+    };
+
+    const fetchEvidence = async (userId) => {
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/evidence/${userId}`);
+            const data = await response.json();
+            if (data.success) {
+                setEvidenceList(data.evidence || []);
+            }
+        } catch (error) {
+            console.error('Error fetching evidence:', error);
         }
     };
 
@@ -370,6 +409,7 @@ const GuardianDashboard = () => {
             // We can determine this by checking if timeline is empty
             const isFirstLoad = timeline.length === 0;
             fetchTimeline(selectedUserId, isFirstLoad);
+            fetchEvidence(selectedUserId);
         }
     }, [selectedUserId, availableUsers, snoozeMap]); // Added snoozeMap to dependencies
 
@@ -478,6 +518,15 @@ const GuardianDashboard = () => {
         };
         socket.on('activity:new', handleActivityNew);
 
+        const handleEvidenceNew = (data) => {
+            if (data.evidence && data.evidence.userId === selectedUserIdRef.current) {
+                setEvidenceList(prev => [data.evidence, ...prev]);
+                setToast(<><Camera size={16} /> New evidence captured</>);
+                setTimeout(() => setToast(null), 3000);
+            }
+        };
+        socket.on('evidence:new', handleEvidenceNew);
+
         return () => {
             socket.off('sos-status-change', handleSOSChange);
             socket.off('user-location-update', handleLocationUpdate);
@@ -485,6 +534,7 @@ const GuardianDashboard = () => {
             socket.off('user-unreachable', handleUnreachable);
             socket.off('user-back-online', handleBackOnline);
             socket.off('activity:new', handleActivityNew);
+            socket.off('evidence:new', handleEvidenceNew);
         };
     }, [selectedUserId]);
 
@@ -707,6 +757,35 @@ const GuardianDashboard = () => {
                 // Clipboard failed — show prompt as last resort
                 prompt('Copy this location link:', googleMapsUrl);
                 emitLocationShared();
+            }
+        }
+    };
+
+    const handleDownloadEvidence = (evidence) => {
+        const link = document.createElement('a');
+        link.href = evidence.url;
+        link.download = `evidence-${evidence.timestamp}.jpg`;
+        link.target = '_blank';
+        link.click();
+    };
+
+    const handleShareEvidence = async (evidence) => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: 'Emergency Evidence',
+                    url: evidence.url
+                });
+            } catch (err) {
+                console.log('Share cancelled');
+            }
+        } else {
+            try {
+                await navigator.clipboard.writeText(evidence.url);
+                setToast('📋 Link copied to clipboard');
+                setTimeout(() => setToast(null), 3000);
+            } catch (err) {
+                console.error('Copy failed:', err);
             }
         }
     };
@@ -1062,11 +1141,22 @@ const GuardianDashboard = () => {
                                     <span className="stat-label">Location</span>
                                 </div>
                             </button>
-                            <div className="stat-card" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                                <Video size={20} color={!userStatus.isOnline ? '#9ca3af' : 'currentColor'} />
+                            <div 
+                                className="stat-card evidence-card"
+                                onClick={() => setShowEvidenceModal(true)}
+                                style={{ 
+                                    cursor: 'pointer',
+                                    background: evidenceList.length > 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(100, 116, 139, 0.1)',
+                                    borderColor: evidenceList.length > 0 ? '#22C55E' : '#64748B',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                <span className="icon" style={{ display: 'flex', alignItems: 'center' }}>
+                                    <Video size={32} style={{ color: evidenceList.length > 0 ? '#22C55E' : '#64748B' }} />
+                                </span>
                                 <div className="stat-info">
-                                    <span className="stat-value">--</span>
-                                    <span className="stat-label">Footage</span>
+                                    <span className="stat-value" style={{ fontSize: '24px', fontWeight: 'bold' }}>{evidenceList.length}</span>
+                                    <span className="stat-label" style={{ fontSize: '11px', textTransform: 'uppercase' }}>Evidence</span>
                                 </div>
                             </div>
                         </div>
@@ -1297,11 +1387,22 @@ const GuardianDashboard = () => {
                     zIndex: 10000,
                     whiteSpace: 'nowrap',
                     boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                    animation: 'slideUp 0.3s ease'
+                    animation: 'slideUp 0.3s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
                 }}>
                     {toast}
                 </div>
             )}
+
+            <EvidenceModal
+                isOpen={showEvidenceModal}
+                onClose={() => setShowEvidenceModal(false)}
+                evidenceList={evidenceList}
+                onDownload={handleDownloadEvidence}
+                onShare={handleShareEvidence}
+            />
         </>
     );
 };

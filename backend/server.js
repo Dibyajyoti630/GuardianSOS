@@ -3,6 +3,12 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
+console.log('🔐 Environment check:', {
+  cloudinaryName: process.env.CLOUDINARY_CLOUD_NAME,
+  cloudinaryKey: process.env.CLOUDINARY_API_KEY ? 'Present' : 'Missing',
+  cloudinarySecret: process.env.CLOUDINARY_API_SECRET ? 'Present' : 'Missing'
+});
+
 const app = express();
 const http = require('http').createServer(app);
 const io = require('socket.io')(http, {
@@ -38,6 +44,18 @@ require('./socket_stream')(io, app);
 // Routes
 app.get('/', (req, res) => res.send('API RUNNING'));
 app.use('/uploads', express.static(__dirname + '/uploads')); // Serve uploaded files
+
+// TEMPORARY - For debugging only - Remove after issue is fixed
+app.get('/api/test-evidence', (req, res) => {
+  res.json({ 
+    success: true, 
+    message: 'Evidence route is reachable',
+    cloudinaryConfigured: !!process.env.CLOUDINARY_CLOUD_NAME,
+    cloudNameValue: process.env.CLOUDINARY_CLOUD_NAME || 'missing',
+    multerAvailable: !!require('multer')
+  });
+});
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/contacts', require('./routes/contacts'));
 app.use('/api/invite', require('./routes/invite'));

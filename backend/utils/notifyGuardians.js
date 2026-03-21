@@ -60,31 +60,32 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
                 emailSubject = `WARNING ALERT: ${user.name} feels unsafe`;
                 smsMessageTemplate = `WARNING: ${user.name} feels unsafe and has triggered a Warning alert.\nTime: ${formattedDate}\nTrack Live: {dashboardLink}`;
                 emailHtmlTemplate = `
-                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
+                    <div style="background-color: #fef08a; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif; color: #854d0e;">
                         <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
                         <p><strong>Time:</strong> ${formattedDate}</p>
                         <div style="margin-top: 20px;">
                             <a href="{dashboardLink}" style="background-color: #eab308; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
                         </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                         <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
                     </div>
                 `;
             } else {
                 emailSubject = `SOS ALERT: ${user.name} needs help!`;
                 smsMessageTemplate = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsLink}\nBattery: ${battery}%\nNetwork: ${network}\nTrack Live: {dashboardLink}`;
                 emailHtmlTemplate = `
-                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
+                    <div style="background-color: #fee2e2; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif; color: #991b1b;">
                         <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
                         <p><strong>Time:</strong> ${formattedDate}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
+                        <p><strong>Location:</strong> <a href="${googleMapsLink}" style="color: #dc2626;">View on Google Maps</a></p>
+                        <p><strong>Evidence:</strong> <a href="${process.env.BACKEND_URL || 'http://localhost:5000'}/api/evidence/latest/${userId}" style="color: #dc2626;">📸 View Captured Photo</a></p>
                         <p><strong>Battery:</strong> ${battery}%</p>
                         <p><strong>Network:</strong> ${network}</p>
                         <div style="margin-top: 20px;">
                             <a href="{dashboardLink}" style="background-color: #dc2626; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
                         </div>
-                         <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                         <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
                     </div>
                 `;
             }
@@ -92,7 +93,7 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
             emailSubject = `⚠️ GuardianSOS Alert — ${user.name} is unreachable`;
             smsMessageTemplate = `⚠️ GuardianSOS Alert: ${user.name} disconnected unexpectedly.\nLast known location: ${locationText}\nLast seen: ${formattedDate}\nPlease check on them immediately. Track: {dashboardLink}`;
             emailHtmlTemplate = `
-                <div style="background-color: #ffedd5; padding: 20px; border: 2px solid #f97316; border-radius: 8px; font-family: Arial, sans-serif;">
+                <div style="background-color: #ffedd5; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #f97316; border-radius: 8px; font-family: Arial, sans-serif; color: #c2410c;">
                     <h1 style="color: #ea580c; margin-top: 0;">⚠️ User Unreachable</h1>
                     <p style="font-size: 18px;"><strong>${user.name}</strong> disconnected unexpectedly.</p>
                     <p><strong>Last known location:</strong> ${locationText}</p>
@@ -101,7 +102,21 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
                     <div style="margin-top: 20px;">
                         <a href="{dashboardLink}" style="background-color: #f97316; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">Track Live Dashboard</a>
                     </div>
-                     <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                     <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
+                </div>
+            `;
+        } else if (alertLevel === 'Safe') {
+            emailSubject = `SAFE UPDATE: ${user.name} is now safe`;
+            smsMessageTemplate = `SAFE UPDATE: ${user.name} is now marked as Safe.\nTime: ${formattedDate}\nTrack Live: {dashboardLink}`;
+            emailHtmlTemplate = `
+                <div style="background-color: #dcfce7; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #22c55e; border-radius: 8px; font-family: Arial, sans-serif; color: #166534;">
+                    <h1 style="color: #15803d; margin-top: 0;">SAFE UPDATE</h1>
+                    <p style="font-size: 18px;"><strong>${user.name}</strong> is now marked as Safe.</p>
+                    <p><strong>Time:</strong> ${formattedDate}</p>
+                    <div style="margin-top: 20px;">
+                        <a href="{dashboardLink}" style="background-color: #16a34a; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; font-weight: bold; display: inline-block;">View Dashboard</a>
+                    </div>
+                     <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
                 </div>
             `;
         } else {
@@ -173,38 +188,50 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
             if (alertLevel === 'Warning') {
                 contactSms = `WARNING: ${user.name} feels unsafe!\nTime: ${formattedDate}\nCheck GuardianSOS App immediately!`;
                 contactEmailHtml = `
-                    <div style="background-color: #fef08a; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif;">
+                    <div style="background-color: #fef08a; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #eab308; border-radius: 8px; font-family: Arial, sans-serif; color: #854d0e;">
                         <h1 style="color: #ca8a04; margin-top: 0;">WARNING ALERT</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> feels unsafe and triggered a warning.</p>
                         <p><strong>Time:</strong> ${formattedDate}</p>
                         <p>Please contact them immediately or check the GuardianSOS app if you are a registered Guardian.</p>
-                        <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                        <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
                     </div>
                 `;
             } else if (alertLevel === 'SOS') {
                 contactSms = `URGENT SOS: ${user.name} needs help!\nTime: ${formattedDate}\nLocation: ${googleMapsLink}\nBattery: ${battery}%\nNetwork: ${network}\nCheck GuardianSOS app!`;
                 contactEmailHtml = `
-                    <div style="background-color: #fee2e2; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif;">
+                    <div style="background-color: #fee2e2; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #ef4444; border-radius: 8px; font-family: Arial, sans-serif; color: #991b1b;">
                         <h1 style="color: #ef4444; margin-top: 0;">SOS ALERT!</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> has triggered an emergency alert.</p>
                         <p><strong>Time:</strong> ${formattedDate}</p>
-                        <p><strong>Location:</strong> <a href="${googleMapsLink}">View on Google Maps</a></p>
+                        <p><strong>Location:</strong> <a href="${googleMapsLink}" style="color: #dc2626;">View on Google Maps</a></p>
+                        <p><strong>Evidence:</strong> <a href="${process.env.BACKEND_URL || 'http://localhost:5000'}/api/evidence/latest/${userId}" style="color: #dc2626;">📸 View Captured Photo</a></p>
                         <p><strong>Battery:</strong> ${battery}%</p>
                         <p><strong>Network:</strong> ${network}</p>
                         <p>Please contact emergency services or check the GuardianSOS app immediately if you are a registered Guardian.</p>
-                        <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                        <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
                     </div>
                 `;
             } else if (alertLevel === 'Unreachable') {
                 contactSms = `⚠️ GuardianSOS Alert: ${user.name} disconnected unexpectedly.\nLast known location: ${locationText}\nLast seen: ${formattedDate}\nPlease check on them immediately.`;
                 contactEmailHtml = `
-                    <div style="background-color: #ffedd5; padding: 20px; border: 2px solid #f97316; border-radius: 8px; font-family: Arial, sans-serif;">
+                    <div style="background-color: #ffedd5; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #f97316; border-radius: 8px; font-family: Arial, sans-serif; color: #c2410c;">
                         <h1 style="color: #ea580c; margin-top: 0;">⚠️ User Unreachable</h1>
                         <p style="font-size: 18px;"><strong>${user.name}</strong> disconnected unexpectedly.</p>
                         <p><strong>Last known location:</strong> ${locationText}</p>
                         <p><strong>Last seen:</strong> ${formattedDate}</p>
                         <p>Please contact them immediately or check the GuardianSOS app if you are a registered Guardian.</p>
-                        <p style="margin-top: 20px; color: #666;">This is an automated message from GuardianSOS.</p>
+                        <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
+                    </div>
+                `;
+            } else if (alertLevel === 'Safe') {
+                contactSms = `SAFE UPDATE: ${user.name} is now marked as Safe.\nTime: ${formattedDate}\nCheck GuardianSOS app.`;
+                contactEmailHtml = `
+                    <div style="background-color: #dcfce7; background-image: url('https://res.cloudinary.com/dysrjp0dg/image/upload/o_15/v1774085430/guardiansos/email_assets/ifjmch5bimk6jrbz1erl.png'); background-size: cover; background-position: center; padding: 20px; border: 2px solid #22c55e; border-radius: 8px; font-family: Arial, sans-serif; color: #166534;">
+                        <h1 style="color: #15803d; margin-top: 0;">SAFE UPDATE</h1>
+                        <p style="font-size: 18px;"><strong>${user.name}</strong> is now marked as Safe.</p>
+                        <p><strong>Time:</strong> ${formattedDate}</p>
+                        <p>We wanted to let you know that the situation has been marked as Safe.</p>
+                        <p style="margin-top: 20px; font-size: 12px;">This is an automated message from GuardianSOS.</p>
                     </div>
                 `;
             }

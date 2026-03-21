@@ -511,6 +511,46 @@ module.exports = (io, app) => {
             }
         });
 
+        socket.on('evidence:mark-viewed', async (data) => {
+            try {
+                const { evidenceId, guardianId } = data;
+                
+                await Evidence.findByIdAndUpdate(evidenceId, {
+                    $addToSet: { viewedBy: { guardianId, viewedAt: new Date() } }
+                });
+            } catch (error) {
+                console.error('Error marking evidence viewed:', error);
+            }
+        });
+
+        socket.on('guardian:request-photo', async (data) => {
+            try {
+                const { userId, guardianId, guardianName, cameraType } = data;
+                
+                console.log(`📸 Guardian ${guardianName} requested photo from user ${userId}`);
+                
+                // Emit to user's socket
+                const userSocketId = userSockets.get(userId);
+                if (userSocketId) {
+                    io.to(userSocketId).emit('guardian:request-photo', {
+                        guardianName,
+                        cameraType
+                    });
+                }
+
+                // Log activity
+                await Activity.create({
+                    userId,
+                    guardianId,
+                    type: 'PHOTO_REQUESTED',
+                    text: `${guardianName} requested photo (${cameraType === 'user' ? 'front' : 'back'} camera)`,
+                    timestamp: new Date()
+                });
+            } catch (error) {
+                console.error('Error handling photo request:', error);
+            }
+        });
+
         socket.on('disconnect', async () => {
             // Close all active streams for this socket
             activeStreams.forEach((info) => {
