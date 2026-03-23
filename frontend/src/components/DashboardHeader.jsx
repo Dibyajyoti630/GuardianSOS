@@ -273,25 +273,43 @@ const DashboardHeader = ({ user, socket }) => {
 
                             <div className="help-modal-content">
                                 <section className="help-section">
-                                    <h3>🛡️ Main Features</h3>
+                                    <h3>🛡️ SOS & Safety Status</h3>
 
                                     <div className="help-item">
                                         <div className="help-icon sos-icon">
                                             <Shield size={24} />
                                         </div>
                                         <div className="help-text">
-                                            <h4>SOS Button (Center)</h4>
-                                            <p>Press and hold the large red button to activate emergency alert. A 5-second countdown will start. Release to cancel, or keep holding to send SOS to your emergency contacts with your live location.</p>
+                                            <h4>SOS Button Power</h4>
+                                            <p><strong>Single Tap:</strong> Triggers "Warning" status - notifies guardians you feel unsafe.</p>
+                                            <p><strong>Long Press (3s) or Triple Tap:</strong> Triggers "Full SOS" - starts 5s countdown, activates siren, and alerts all guardians with live location.</p>
+                                            <p><strong>I Am Safe:</strong> Tap the green button to cancel an active SOS or Warning alert.</p>
                                         </div>
                                     </div>
+
+                                    <div className="help-item">
+                                        <div className="help-icon">
+                                            <AlertCircle size={24} />
+                                        </div>
+                                        <div className="help-text">
+                                            <h4>Safety Indicators</h4>
+                                            <p><strong>Green:</strong> All clear - you're protected.<br />
+                                               <strong>Orange:</strong> Warning triggered - guardians notified.<br />
+                                               <strong>Red:</strong> SOS Active - emergency services alerted.</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="help-section">
+                                    <h3>📍 Location & Tracking</h3>
 
                                     <div className="help-item">
                                         <div className="help-icon">
                                             <MapPin size={24} />
                                         </div>
                                         <div className="help-text">
-                                            <h4>Live Location Card</h4>
-                                            <p>Shows your current location on a map with real-time updates. The map displays your exact coordinates and address using GPS or network-based positioning.</p>
+                                            <h4>Live Tracking Card</h4>
+                                            <p>Shows your real-time position on a dark-themed map. Includes accuracy indicators and your current address.</p>
                                         </div>
                                     </div>
 
@@ -300,131 +318,75 @@ const DashboardHeader = ({ user, socket }) => {
                                             <RefreshCw size={24} />
                                         </div>
                                         <div className="help-text">
-                                            <h4>Refresh Location Button</h4>
-                                            <p>Click the circular refresh icon (🔄) on the location card to manually update your position. Useful if your location seems outdated or inaccurate.</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="help-item">
-                                        <div className="help-icon">
-                                            <Navigation size={24} />
-                                        </div>
-                                        <div className="help-text">
-                                            <h4>Share Location Button</h4>
-                                            <p>Share your current location with others via messaging apps or copy the Google Maps link to clipboard. Great for letting friends know where you are.</p>
+                                            <h4>Refresh & Share</h4>
+                                            <p>Use 🔄 to force a GPS update. Use the Share icon to send a Google Maps link of your location to anyone via messaging apps.</p>
                                         </div>
                                     </div>
                                 </section>
 
                                 <section className="help-section">
-                                    <h3>📊 Status Indicators</h3>
-
-                                    <div className="help-item">
-                                        <div className="help-icon status-safe">
-                                            <AlertCircle size={24} />
-                                        </div>
-                                        <div className="help-text">
-                                            <h4>Safety Status</h4>
-                                            <p><strong>Green:</strong> You're safe and protected<br />
-                                                <strong>Red:</strong> SOS is active - emergency alert sent<br />
-                                                <strong>Orange:</strong> Warning or countdown in progress</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="help-item">
-                                        <div className="help-icon">
-                                            <Clock size={24} />
-                                        </div>
-                                        <div className="help-text">
-                                            <h4>Last Updated Time</h4>
-                                            <p>Shows when your location was last refreshed. Location updates automatically every few seconds when you move.</p>
-                                        </div>
-                                    </div>
-                                </section>
-
-                                <section className="help-section">
-                                    <h3>⚙️ Header Icons</h3>
-
-                                    <div className="help-item">
-                                        <div className="help-icon">
-                                            <HelpCircle size={24} />
-                                        </div>
-                                        <div className="help-text">
-                                            <h4>Help Icon (?)</h4>
-                                            <p>Opens this guide to help you understand all dashboard features and how to use them effectively.</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="help-item">
-                                        <div className="help-icon">
-                                            <Settings size={24} />
-                                        </div>
-                                        <div className="help-text">
-                                            <h4>Settings Icon (⚙️)</h4>
-                                            <p>Access app settings and options. Toggle between dark and light mode, or logout from your account.</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="help-item">
-                                        <div className="help-icon">
-                                            <LogOut size={24} />
-                                        </div>
-                                        <div className="help-text">
-                                            <h4>Logout</h4>
-                                            <p>Click Settings → Logout to safely sign out of your account and return to the login page.</p>
-                                        </div>
-                                    </div>
-                                </section>
-
-                                <section className="help-section">
-                                    <h3>💡 Quick Actions</h3>
+                                    <h3>⚡ Quick Actions</h3>
 
                                     <div className="help-item">
                                         <div className="help-icon">
                                             <Phone size={24} />
                                         </div>
                                         <div className="help-text">
-                                            <h4>Fake Call</h4>
-                                            <p>Simulate a realistic incoming phone call to help you escape uncomfortable situations. Tap to trigger an instant fake call with ringtone and vibration. Customize the caller name in Settings → Fake Call Settings.</p>
+                                            <h4>Emergency & Fake Call</h4>
+                                            <p><strong>Emergency Call:</strong> Instantly dial Police, Ambulance, Fire, or your primary Guardian.</p>
+                                            <p><strong>Fake Call:</strong> Trigger a realistic incoming call to escape uncomfortable situations (Setup in Settings).</p>
                                         </div>
                                     </div>
 
                                     <div className="help-item">
                                         <div className="help-icon">
-                                            <Phone size={24} />
+                                            <Users size={24} />
                                         </div>
                                         <div className="help-text">
-                                            <h4>Emergency Contacts</h4>
-                                            <p>Quick access buttons to call emergency services (Police, Ambulance, Fire) or your pre-configured emergency contacts.</p>
+                                            <h4>Guardian Protection</h4>
+                                            <p>Your guardians can view your live location, battery level, and request a photo/video from your device if they detect you're in danger.</p>
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="help-section">
+                                    <h3>⚙️ Strategic Settings</h3>
+
+                                    <div className="help-item">
+                                        <div className="help-icon">
+                                            <Power size={24} />
+                                        </div>
+                                        <div className="help-text">
+                                            <h4>Going Offline</h4>
+                                            <p><strong>Single Tap:</strong> Voluntary disconnect when you're safe.</p>
+                                            <p><strong>3s Hold (Duress):</strong> Use if forced to go offline. Notifies guardians of a "Suspicious Disconnect".</p>
                                         </div>
                                     </div>
 
                                     <div className="help-item">
                                         <div className="help-icon">
-                                            <Zap size={24} />
+                                            <UserPlus size={24} />
                                         </div>
                                         <div className="help-text">
-                                            <h4>Quick Actions Panel</h4>
-                                            <p>Access frequently used safety features like calling emergency services, sharing location, or viewing your safety history.</p>
+                                            <h4>Manage Guardians</h4>
+                                            <p>Add new guardians (requires OTP verification) or manage existing ones to control who can track your safety.</p>
                                         </div>
                                     </div>
                                 </section>
 
                                 <section className="help-section help-tips">
-                                    <h3>💡 Pro Tips</h3>
+                                    <h3>💡 Pro Safety Tips</h3>
                                     <ul>
-                                        <li>Enable GPS on your device for accurate location tracking</li>
-                                        <li>Add emergency contacts in settings for faster SOS alerts</li>
-                                        <li>Test the SOS button (but cancel before countdown ends) to familiarize yourself</li>
-                                        <li>Keep the app open in background for continuous protection</li>
-                                        <li>Share your location with trusted contacts when traveling alone</li>
-                                        <li>Check the accuracy indicator - green means GPS is working well</li>
+                                        <li>Keep the app running in the background for continuous tracking.</li>
+                                        <li>Test the "Fake Call" feature in private so you know what it looks like.</li>
+                                        <li>Use "Duress Offline" only if you're actually in a suspicious situation.</li>
+                                        <li>Ensure GPS "High Accuracy" is enabled in your device settings.</li>
+                                        <li>Regularly check if your Primary Guardian is active.</li>
                                     </ul>
                                 </section>
 
                                 <section className="help-section help-footer">
-                                    <p><strong>Need more help?</strong> Contact support or visit our FAQ page.</p>
-                                    <p className="help-version">GuardianSOS v1.0 - Your Safety, Our Priority 🛡️</p>
+                                    <p><strong>Your Safety, Our Priority.</strong> GuardianSOS v1.1 🛡️</p>
                                 </section>
                             </div>
                         </div>
