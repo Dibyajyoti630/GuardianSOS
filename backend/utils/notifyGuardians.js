@@ -18,6 +18,32 @@ const EmergencyContact = require('../models/EmergencyContact');
  * @param {string} [params.battery] - Optional battery percentage
  * @param {string} [params.network] - Optional network signal strength
  */
+// async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknown', network = 'Unknown' }) {
+//     try {
+//         const connections = await Connection.find({
+//             user: userId,
+//             status: 'active'
+//         }).populate('guardian', 'email name phone');
+
+//         const user = await User.findById(userId);
+//         if (!user) {
+//             console.error(`[Notify] User not found: ${userId}`);
+//             return;
+//         }
+
+//         const googleMapsUrl = location && location.lat && location.lng
+//             ? `https://www.google.com/maps?q=${location.lat},${location.lng}`
+//             : null;
+
+//         const googleMapsLinkTemplate = googleMapsUrl 
+//             ? `<a href="${googleMapsUrl}" style="color: #dc2626;">View on Google Maps</a>`
+//             : `<span>Location unavailable</span>`;
+
+//         const googleMapsText = googleMapsUrl || 'Unknown Location';
+
+//         const locationText = location && location.address ? location.address : googleMapsText;
+
+//         const backendUrl = process.env.BACKEND_URL || 'https://guardiansos-backend.onrender.com';
 async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknown', network = 'Unknown' }) {
     try {
         const connections = await Connection.find({
@@ -31,19 +57,28 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
             return;
         }
 
-        const googleMapsUrl = location && location.lat && location.lng
+        // Check if location is valid (not 0,0 fallback)
+        const hasValidLocation = location && location.lat && location.lng && !(location.lat === 0 && location.lng === 0);
+
+        const googleMapsUrl = hasValidLocation
             ? `https://www.google.com/maps?q=${location.lat},${location.lng}`
             : null;
-        
-        const googleMapsLinkTemplate = googleMapsUrl 
-            ? `<a href="${googleMapsUrl}" style="color: #dc2626;">View on Google Maps</a>`
-            : `<span>Location unavailable</span>`;
 
-        const googleMapsText = googleMapsUrl || 'Unknown Location';
-        
-        const locationText = location && location.address ? location.address : googleMapsText;
+        const googleMapsLinkTemplate = googleMapsUrl
+            ? `<a href="${googleMapsUrl}" style="color: #dc2626;">View on Google Maps</a>`
+            : `<span style="color: #dc2626;">Location unavailable</span>`;
+
+        const googleMapsText = googleMapsUrl
+            ? `https://www.google.com/maps?q=${location.lat},${location.lng}`
+            : 'Location unavailable';
+
+        const locationText = location && location.address
+            ? location.address
+            : (hasValidLocation ? googleMapsText : 'Location unavailable');
 
         const backendUrl = process.env.BACKEND_URL || 'https://guardiansos-backend.onrender.com';
+
+        // ... rest of the function stays the same
 
         // Format Date to DD/MM/YYYY HH:mm:ss in IST
         const now = new Date();
@@ -149,7 +184,7 @@ async function notifyGuardians({ userId, alertLevel, location, battery = 'Unknow
             if (!conn.guardian) return null;
 
             const personalizedDashboardLink = `${frontendUrl}/guardiansos/guardian/dashboard?target=${userId}&auth=${encodeURIComponent(conn.guardian.email)}`;
-            
+
             const smsMessage = smsMessageTemplate.replace('{dashboardLink}', personalizedDashboardLink);
             const emailHtml = emailHtmlTemplate.replace('{dashboardLink}', personalizedDashboardLink);
 

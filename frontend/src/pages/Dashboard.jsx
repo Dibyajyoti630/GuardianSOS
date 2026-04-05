@@ -279,19 +279,31 @@ const Dashboard = () => {
         setIsSOSActive(true);
         try {
             const token = localStorage.getItem('token');
-            let location = { lat: 0, lng: 0, address: 'Warning triggered' };
 
-            // Try to get real location for the warning too (non-blocking)
-            if (navigator.geolocation) {
-                try {
-                    const pos = await new Promise((resolve, reject) => {
-                        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000, enableHighAccuracy: true });
-                    });
-                    location = { lat: pos.coords.latitude, lng: pos.coords.longitude, address: 'Warning location' };
-                } catch (e) {
-                    console.warn('Could not get location for warning:', e);
+            // Get location using same reliable approach as SOS trigger
+            const location = await new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve({ lat: 0, lng: 0, address: 'Geolocation not supported' });
+                    return;
                 }
-            }
+
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        address: 'Warning location'
+                    }),
+                    (err) => {
+                        console.warn('GPS failed for Warning:', err.message, err.code);
+                        resolve({ lat: 0, lng: 0, address: 'Location unavailable - GPS error' });
+                    },
+                    { 
+                        timeout: 10000,
+                        maximumAge: 600000,
+                        enableHighAccuracy: false
+                    }
+                );
+            });
 
             socket.emit('update-device-stats', { token });
 
@@ -332,33 +344,39 @@ const Dashboard = () => {
     const handleSOSTrigger = async () => {
         startSiren();
 
-        // Fetch geolocation + device stats in PARALLEL for speed
-        const getPositionPromise = new Promise((resolve) => {
-            if (!navigator.geolocation) { resolve(null); return; }
-            navigator.geolocation.getCurrentPosition(
-                (pos) => resolve(pos),
-                () => resolve(null),
-                { timeout: 3000, enableHighAccuracy: true }
-            );
-        });
+        const getLocation = async () => {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) {
+                    resolve({ lat: 0, lng: 0, address: 'Geolocation not supported' });
+                    return;
+                }
+
+                // Single attempt with longer timeout and accept cached
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => resolve({
+                        lat: pos.coords.latitude,
+                        lng: pos.coords.longitude,
+                        address: 'Current location'
+                    }),
+                    (err) => {
+                        console.warn('GPS failed:', err.message, err.code);
+                        resolve({ lat: 0, lng: 0, address: 'Location unavailable - GPS error' });
+                    },
+                    { 
+                        timeout: 10000,          // 10 seconds
+                        maximumAge: 600000,      // Accept 10-min old location
+                        enableHighAccuracy: false // Faster, uses cached/network location
+                    }
+                );
+            });
+        };
 
         try {
             const token = localStorage.getItem('token');
-            const [position, stats] = await Promise.all([
-                getPositionPromise,
+            const [location, stats] = await Promise.all([
+                getLocation(),
                 getDeviceStats()
             ]);
-
-            let location = { lat: 0, lng: 0, address: 'Location Unavailable' };
-            if (position) {
-                location = {
-                    lat: position.coords.latitude,
-                    lng: position.coords.longitude,
-                    address: 'Fetching address...'
-                };
-            }
-
-            console.log("Sending SOS with Location:", location, "Stats:", stats);
 
             // Send SOS with timeout + retry for maximum reliability
             const sendSOS = async (retries = 1) => {
