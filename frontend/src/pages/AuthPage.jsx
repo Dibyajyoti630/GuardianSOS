@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useGoogleLogin } from '@react-oauth/google';
 import { ShieldCheck, User, Lock, ArrowRight } from 'lucide-react';
 import '../styles/AuthPage.css';
@@ -208,6 +208,22 @@ const AuthPage = ({ role }) => {
                         >
                             {isLogin ? 'Sign Up' : 'Log In'}
                         </button>
+                        {isLogin && isUser && (
+                            <>
+                                {' · '}
+                                <Link to="/guardiansos/guardian/login" className="guardian-login-link">
+                                    Guardian Login
+                                </Link>
+                            </>
+                        )}
+                        {isLogin && !isUser && (
+                            <>
+                                {' · '}
+                                <Link to="/guardiansos/user/login" className="guardian-login-link">
+                                    User Login
+                                </Link>
+                            </>
+                        )}
                     </p>
                 </div>
             </div>

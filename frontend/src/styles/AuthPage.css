@@ -144,6 +144,19 @@
     text-decoration: underline;
 }
 
+.guardian-login-link {
+    color: var(--color-primary);
+    font-weight: 700;
+    padding: 0 4px;
+    text-decoration: none;
+    transition: opacity 0.2s;
+}
+
+.guardian-login-link:hover {
+    text-decoration: underline;
+    opacity: 0.85;
+}
+
 .auth-divider {
     display: flex;
     align-items: center;
