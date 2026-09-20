@@ -130,7 +130,7 @@ const uploadEvidence = async (userId, blob, cameraType, eventType) => {
 let isCapturing = false;
 let lastCaptureTime = 0;
 
-export const captureEvidence = async (userId, eventType = 'SOS_TRIGGER', cameraType = 'environment') => {
+export const captureEvidence = async (userId, eventType = 'SOS_TRIGGER', cameraType = 'both') => {
   // Debounce: prevent captures within 2 seconds
   const now = Date.now();
   if (isCapturing || (now - lastCaptureTime < 2000)) {
@@ -153,39 +153,64 @@ export const captureEvidence = async (userId, eventType = 'SOS_TRIGGER', cameraT
       return { success: false, reason: 'permission_denied' };
     }
 
-    // 2. Request video stream
-    const stream = await Promise.race([
-      navigator.mediaDevices.getUserMedia({ 
-        video: { 
-          facingMode: cameraType, // 'environment' (back) or 'user' (front)
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
-        } 
-      }),
-      new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('timeout')), 3000)
-      )
-    ]);
+    // Helper to capture and upload from a specific camera
+    const captureFromCamera = async (camType) => {
+      try {
+        const stream = await Promise.race([
+          navigator.mediaDevices.getUserMedia({ 
+            video: { 
+              facingMode: camType, // 'environment' (back) or 'user' (front)
+              width: { ideal: 1920 },
+              height: { ideal: 1080 }
+            } 
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('timeout')), 3000)
+          )
+        ]);
 
-    // 3. Capture frame
-    const blob = await captureFrameFromStream(stream);
+        const blob = await captureFrameFromStream(stream);
+        stream.getTracks().forEach(track => track.stop());
+        const compressedBlob = await compressImage(blob, 0.7);
 
-    // 4. Stop all tracks immediately
-    stream.getTracks().forEach(track => track.stop());
+        // Fire and forget upload
+        uploadEvidence(userId, compressedBlob, camType, eventType)
+          .then(res => console.log(`Evidence uploaded (${camType})`, res))
+          .catch(err => console.error(`Background upload failed (${camType})`, err));
 
-    // 5. Compress image
-    const compressedBlob = await compressImage(blob, 0.7);
+        return { 
+          success: true, 
+          originalSize: blob.size, 
+          compressedSize: compressedBlob.size,
+          camera: camType
+        };
+      } catch (err) {
+        console.error(`Failed to capture from ${camType} camera:`, err);
+        return { success: false, reason: err.message, camera: camType };
+      }
+    };
 
-    // 6. Upload
-    // Fire and forget upload
-    uploadEvidence(userId, compressedBlob, cameraType, eventType)
-      .then(res => console.log('Evidence uploaded', res))
-      .catch(err => console.error('Background upload failed', err));
+    let results = [];
+    if (cameraType === 'both' || !cameraType || cameraType === 'environment') {
+      // Capture back camera first
+      const backResult = await captureFromCamera('environment');
+      results.push(backResult);
+      
+      // Brief pause to allow camera hardware to reset
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Capture front camera
+      const frontResult = await captureFromCamera('user');
+      results.push(frontResult);
+    } else {
+      // Capture only specified if explicitly not 'both' or 'environment' (e.g. just 'user')
+      const result = await captureFromCamera(cameraType);
+      results.push(result);
+    }
 
     return { 
-      success: true, 
-      originalSize: blob.size, 
-      compressedSize: compressedBlob.size 
+      success: results.some(r => r.success), 
+      results
     };
 
   } catch (error) {
