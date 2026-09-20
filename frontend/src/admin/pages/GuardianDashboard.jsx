@@ -1024,10 +1024,15 @@ const GuardianDashboard = () => {
                                 style={{ height: '100%', width: '100%' }}
                                 zoomControl={false} // We can add custom controls if we want, or keep it simple
                             >
+                                <style>{`
+                                    .leaflet-tile-pane {
+                                        filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+                                    }
+                                `}</style>
                                 <TileLayer
                                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                                    // Using a dark theme map to fit the dashboard
-                                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                                    // Using standard OSM with CSS inversion for dark theme (Carto now requires API key)
+                                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 />
                                 <Marker position={[userStatus.location.lat, userStatus.location.lng]}>
                                     <Popup>
